@@ -4,9 +4,10 @@
  * Synced with web: normalizeTimeBlock, expandTimeBlocks, timeBlocksQuery,
  * toggleEventMut, calMenu, googleCalendarEnabled, sanitizeText.
  */
-var { useState, useEffect } = require('react');
+var { useState, useEffect, useRef } = require('react');
 var { useNavigation } = require('@react-navigation/native');
 var { useQuery, useMutation, useQueryClient } = require('@tanstack/react-query');
+var AsyncStorage = require('@react-native-async-storage/async-storage').default;
 var { apiGet, apiPost, apiPatch, apiDelete } = require('../../services/api');
 var { CALENDAR, DREAMS } = require('../../services/endpoints');
 var { BRAND, adaptColor } = require('../../styles/colors');
@@ -119,6 +120,8 @@ function parseTimeTo24h(timeStr) {
   return String(h).padStart(2, '0') + ':' + m + ':00';
 }
 
+var DRAFT_KEY = 'dp-event-draft';
+
 var useCalendarScreen = function () {
   var navigation = useNavigation();
   var queryClient = useQueryClient();
@@ -138,6 +141,35 @@ var useCalendarScreen = function () {
   var [newTime, setNewTime] = useState('9:00 AM');
   var [confirmDel, setConfirmDel] = useState(null);
   var [calMenu, setCalMenu] = useState(false);
+  var draftLoaded = useRef(false);
+
+  // Load draft on mount
+  useEffect(function () {
+    AsyncStorage.getItem(DRAFT_KEY).then(function (val) {
+      if (val) {
+        try {
+          var d = JSON.parse(val);
+          if (d.title) setNewTitle(d.title);
+          if (d.time) setNewTime(d.time);
+          if (d.title) setAddEvt(true);
+          draftLoaded.current = true;
+        } catch (e) { /* ignore malformed draft */ }
+      }
+    });
+  }, []);
+
+  // Auto-save draft every 5 seconds while editing
+  useEffect(function () {
+    var t = setInterval(function () {
+      if (newTitle) {
+        AsyncStorage.setItem(DRAFT_KEY, JSON.stringify({
+          title: newTitle,
+          time: newTime,
+        }));
+      }
+    }, 5000);
+    return function () { clearInterval(t); };
+  }, [newTitle, newTime]);
 
   var startDate = viewY + '-' + String(viewM + 1).padStart(2, '0') + '-01';
   var endDay = getDaysInMonth(viewY, viewM);
@@ -290,6 +322,7 @@ var useCalendarScreen = function () {
     createMutation.mutate({ title: cleanTitle, start_time: startTime, end_time: endTime });
     setNewTitle('');
     setAddEvt(false);
+    AsyncStorage.removeItem(DRAFT_KEY);
   };
 
   var isLoading = tasksQuery.isLoading || todayQuery.isLoading;

@@ -12,6 +12,7 @@ var { getTooltipConfig } = require('../../../config/onboardingTooltips');
 var { BRAND } = require('../../../styles/colors');
 var { dark } = require('../../../styles/theme');
 var CalendarHeatmap = require('../../../components/CalendarHeatmap');
+var { OfflineDataBanner } = require('../../../components/shared/OfflineBanner');
 
 function ProfileScreen() {
   var h = useProfileScreen();
@@ -26,7 +27,8 @@ function ProfileScreen() {
     );
   }
 
-  if (h.isErrorData) {
+  var profileHasCache = h.isErrorData && h.user && (h.user.email || h.user.username);
+  if (h.isErrorData && !profileHasCache) {
     return (
       <View style={styles.centerWrap}>
         <Text style={styles.errorMsg} accessibilityRole="alert">{h.errorMessage}</Text>
@@ -39,6 +41,7 @@ function ProfileScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
+      {profileHasCache ? <OfflineDataBanner /> : null}
       {/* Header */}
       <View style={styles.headerRow}>
         <TouchableOpacity onPress={function () { h.navigation.goBack(); }} accessible={true} accessibilityRole="button" accessibilityLabel="Go back">

@@ -2,8 +2,9 @@
  * useEditProfileScreen -- business logic for Edit Profile (React Native).
  * Synced with web app's useEditProfileScreen.js.
  */
-var { useState, useEffect } = require('react');
+var { useState, useEffect, useRef } = require('react');
 var { useNavigation } = require('@react-navigation/native');
+var AsyncStorage = require('@react-native-async-storage/async-storage').default;
 var { apiPut, apiUpload } = require('../../../services/api');
 var { USERS } = require('../../../services/endpoints');
 var { sanitizeText } = require('../../../utils/sanitize');
@@ -11,6 +12,8 @@ var { BRAND, GRADIENTS, adaptColor } = require('../../../styles/colors');
 var { useAuth } = require('../../../context/AuthContext');
 var { useToast } = require('../../../context/ToastContext');
 var { useT } = require('../../../context/I18nContext');
+
+var PROFILE_DRAFT_KEY = 'dp-profile-draft';
 
 function useEditProfileScreen() {
   var navigation = useNavigation();
@@ -27,12 +30,46 @@ function useEditProfileScreen() {
   var [showPicker, setShowPicker] = useState(false);
   var [errors, setErrors] = useState({});
   var [saving, setSaving] = useState(false);
+  var draftLoaded = useRef(false);
 
   var userEmail = (user && user.email) || '';
   var userInitial = user && (user.displayName || user.display_name)
     ? (user.displayName || user.display_name).charAt(0).toUpperCase()
     : '?';
   var userAvatarUrl = (user && user.avatarUrl) || null;
+
+  // Load draft on mount
+  useEffect(function () {
+    AsyncStorage.getItem(PROFILE_DRAFT_KEY).then(function (val) {
+      if (val) {
+        try {
+          var d = JSON.parse(val);
+          if (d.name) setName(d.name);
+          if (d.bio !== undefined) setBio(d.bio);
+          if (d.timezone) setTimezone(d.timezone);
+          draftLoaded.current = true;
+        } catch (e) { /* ignore malformed draft */ }
+      }
+    });
+  }, []);
+
+  // Auto-save draft every 5 seconds while editing
+  useEffect(function () {
+    var origName = (user && (user.displayName || user.display_name)) || '';
+    var origBio = (user && user.bio) || '';
+    var origTimezone = (user && user.timezone) || '';
+    var changed = name !== origName || bio !== origBio || timezone !== origTimezone;
+    var t2 = setInterval(function () {
+      if (changed) {
+        AsyncStorage.setItem(PROFILE_DRAFT_KEY, JSON.stringify({
+          name: name,
+          bio: bio,
+          timezone: timezone,
+        }));
+      }
+    }, 5000);
+    return function () { clearInterval(t2); };
+  }, [name, bio, timezone, user]);
 
   useEffect(function () {
     setTimeout(function () { setMounted(true); }, 100);
@@ -94,6 +131,7 @@ function useEditProfileScreen() {
       .then(function () {
         if (updateUser) updateUser({ displayName: cleanName.trim(), bio: cleanBio.trim(), timezone: cleanTimezone });
         setSaving(false);
+        AsyncStorage.removeItem(PROFILE_DRAFT_KEY);
         showToast(t('editProfile.saved') || 'Profile updated successfully!', 'success');
         navigation.goBack();
       })

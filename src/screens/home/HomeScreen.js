@@ -22,6 +22,7 @@ var { COLORS, SPACING, RADIUS } = require('../../theme/tokens');
 var { BRAND } = require('../../styles/colors');
 var StreakWidget = require('../../components/StreakWidget');
 var AdBanner = require('../../components/AdBanner');
+var { OfflineDataBanner } = require('../../components/shared/OfflineBanner');
 
 var { width: SCREEN_WIDTH } = Dimensions.get('window');
 var CARD_WIDTH = SCREEN_WIDTH - SPACING.xl * 2;
@@ -309,6 +310,7 @@ var HomeScreen = function () {
         colors: [BRAND.purple],
       }),
     },
+      h.isError ? React.createElement(OfflineDataBanner, null) : null,
       renderHeader(),
       renderStreak(),
       React.createElement(AdBanner, { key: 'home-ad-banner' }),

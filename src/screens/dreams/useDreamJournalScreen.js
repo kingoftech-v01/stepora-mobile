@@ -1,9 +1,10 @@
 /**
  * useDreamJournalScreen — Business logic for the daily journal entries screen.
  */
-var { useState, useCallback } = require('react');
+var { useState, useCallback, useEffect, useRef } = require('react');
 var { useNavigation } = require('@react-navigation/native');
 var { useQuery, useMutation, useQueryClient } = require('@tanstack/react-query');
+var AsyncStorage = require('@react-native-async-storage/async-storage').default;
 var { apiGet, apiPost, apiPatch, apiDelete } = require('../../services/api');
 var { DREAMS } = require('../../services/endpoints');
 
@@ -24,6 +25,8 @@ var MOOD_COLORS = {
   motivated: '#F59E0B',
   reflective: '#3B82F6',
 };
+
+var JOURNAL_DRAFT_KEY = 'dp-journal-draft';
 
 var useDreamJournalScreen = function () {
   var navigation = useNavigation();
@@ -62,6 +65,35 @@ var useDreamJournalScreen = function () {
   var [formText, setFormText] = useState('');
   var [formImageUri, setFormImageUri] = useState(null);
   var [editingId, setEditingId] = useState(null);
+  var draftLoaded = useRef(false);
+
+  // Load draft on mount
+  useEffect(function () {
+    AsyncStorage.getItem(JOURNAL_DRAFT_KEY).then(function (val) {
+      if (val) {
+        try {
+          var d = JSON.parse(val);
+          if (d.text) setFormText(d.text);
+          if (d.mood) setFormMood(d.mood);
+          if (d.text || d.mood) setShowForm(true);
+          draftLoaded.current = true;
+        } catch (e) { /* ignore malformed draft */ }
+      }
+    });
+  }, []);
+
+  // Auto-save draft every 5 seconds while editing (only for new entries, not edits)
+  useEffect(function () {
+    var t = setInterval(function () {
+      if (!editingId && (formText || formMood)) {
+        AsyncStorage.setItem(JOURNAL_DRAFT_KEY, JSON.stringify({
+          text: formText,
+          mood: formMood,
+        }));
+      }
+    }, 5000);
+    return function () { clearInterval(t); };
+  }, [formText, formMood, editingId]);
 
   // Create entry mutation
   var createMut = useMutation({
@@ -104,6 +136,7 @@ var useDreamJournalScreen = function () {
     setFormText('');
     setFormImageUri(null);
     setEditingId(null);
+    AsyncStorage.removeItem(JOURNAL_DRAFT_KEY);
   }, []);
 
   var openNewEntry = useCallback(function () {

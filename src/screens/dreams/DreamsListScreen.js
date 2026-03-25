@@ -19,6 +19,7 @@ var AdNative = require('../../components/AdNative');
 var OnboardingTooltip = require('../../components/OnboardingTooltip');
 var { getTooltipConfig } = require('../../config/onboardingTooltips');
 var { COLORS, SPACING, RADIUS } = require('../../theme/tokens');
+var { OfflineDataBanner } = require('../../components/shared/OfflineBanner');
 
 var DreamsListScreen = function () {
   var h = useDreamsListScreen();
@@ -209,7 +210,8 @@ var DreamsListScreen = function () {
     );
   }
 
-  if (h.dreamsInf.isError) {
+  var hasCache = h.dreamsInf.isError && h.filtered && h.filtered.length > 0;
+  if (h.dreamsInf.isError && !hasCache) {
     return React.createElement(SafeAreaView, { style: styles.container },
       renderHeader(),
       React.createElement(View, { style: styles.errorWrap },
@@ -234,6 +236,7 @@ var DreamsListScreen = function () {
       renderItem: renderDreamCard,
       ListHeaderComponent: React.createElement(View, null,
         renderHeader(),
+        hasCache ? React.createElement(OfflineDataBanner, null) : null,
         React.createElement(SubscriptionBanner, null),
         renderSearch(),
         renderFilters()

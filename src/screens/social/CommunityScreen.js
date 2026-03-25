@@ -30,6 +30,7 @@ var Icon = require('react-native-vector-icons/Feather').default;
 var OnboardingTooltip = require('../../components/OnboardingTooltip');
 var { getTooltipConfig } = require('../../config/onboardingTooltips');
 var { COLORS, SPACING, RADIUS, CONTACT_COLORS } = require('../../theme/tokens');
+var { OfflineDataBanner } = require('../../components/shared/OfflineBanner');
 
 var getAvatarColor = function (name) {
   var hash = 0;
@@ -491,6 +492,8 @@ var CommunityScreen = function () {
   }, []);
 
   var isLoading = postsFeed.isLoading && !refreshing;
+  var isError = postsFeed.isError;
+  var hasCache = isError && mixedFeed.length > 0;
 
   return React.createElement(
     ScreenShell,
@@ -516,7 +519,7 @@ var CommunityScreen = function () {
       ],
     }),
 
-    isLoading
+    isLoading && !hasCache
       ? React.createElement(
           View,
           { style: styles.loadingWrap, accessibilityLiveRegion: 'polite' },
@@ -537,6 +540,7 @@ var CommunityScreen = function () {
           ListHeaderComponent: React.createElement(
             View,
             null,
+            hasCache ? React.createElement(OfflineDataBanner, null) : null,
             renderStoriesBar(),
             renderQuickNav(),
           ),

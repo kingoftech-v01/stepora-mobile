@@ -14,6 +14,7 @@ var SubscriptionGate = require('../../components/SubscriptionGate');
 var OnboardingTooltip = require('../../components/OnboardingTooltip');
 var { getTooltipConfig } = require('../../config/onboardingTooltips');
 var { COLORS, SPACING, RADIUS } = require('../../theme/tokens');
+var { OfflineDataBanner } = require('../../components/shared/OfflineBanner');
 
 var EventCard = function (props) {
   var evt = props.evt;
@@ -363,7 +364,9 @@ var CalendarScreen = function () {
     );
   };
 
-  if (h.tasksQuery.isError && h.todayQuery.isError) {
+  var calendarHasError = h.tasksQuery.isError && h.todayQuery.isError;
+  var calendarHasCache = calendarHasError && Object.keys(h.events).length > 0;
+  if (calendarHasError && !calendarHasCache) {
     return React.createElement(SafeAreaView, { style: styles.container },
       renderHeader(),
       React.createElement(View, { style: { flex: 1, alignItems: 'center', justifyContent: 'center' }, accessibilityLiveRegion: 'assertive' },
@@ -387,6 +390,7 @@ var CalendarScreen = function () {
       showsVerticalScrollIndicator: false,
     },
       renderHeader(),
+      calendarHasCache ? React.createElement(OfflineDataBanner, null) : null,
       React.createElement(SubscriptionBanner, null),
       renderQuickAccess(),
       renderMonthNav(),
