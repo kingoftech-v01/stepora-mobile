@@ -40,6 +40,7 @@ var mockHookReturn = {
     { key: 'help', label: 'Help & Support', route: 'TermsOfService', color: '#9CA3AF', isNotif: false },
   ],
   handleSignOut: jest.fn(),
+  t: function (key) { return key; },
 };
 
 jest.mock('./useProfileScreen', function () {
@@ -122,7 +123,7 @@ describe('ProfileScreen', function () {
         React.createElement(ProfileScreen),
       );
 
-      expect(getByText('Profile')).toBeTruthy();
+      expect(getByText('nav.profile')).toBeTruthy();
     });
 
     it('navigates back on back press', function () {
@@ -135,11 +136,12 @@ describe('ProfileScreen', function () {
     });
 
     it('navigates to settings', function () {
-      var { getByLabelText } = render(
+      var { getAllByLabelText } = render(
         React.createElement(ProfileScreen),
       );
 
-      fireEvent.press(getByLabelText('Settings'));
+      // "Settings" label appears on both header gear button and menu item
+      fireEvent.press(getAllByLabelText('Settings')[0]);
       expect(mockHookReturn.navigation.navigate).toHaveBeenCalledWith('Settings');
     });
   });
@@ -174,7 +176,8 @@ describe('ProfileScreen', function () {
         React.createElement(ProfileScreen),
       );
 
-      expect(getByText('Lv12')).toBeTruthy();
+      // Uses t('profile.levelShort') + level which outputs the key + number
+      expect(getByText('profile.levelShort12')).toBeTruthy();
     });
   });
 
@@ -262,7 +265,7 @@ describe('ProfileScreen', function () {
         React.createElement(ProfileScreen),
       );
 
-      expect(getByLabelText('Sign Out')).toBeTruthy();
+      expect(getByLabelText('settings.signOut')).toBeTruthy();
     });
 
     it('calls handleSignOut on press', function () {
@@ -270,7 +273,7 @@ describe('ProfileScreen', function () {
         React.createElement(ProfileScreen),
       );
 
-      fireEvent.press(getByLabelText('Sign Out'));
+      fireEvent.press(getByLabelText('settings.signOut'));
       expect(mockHookReturn.handleSignOut).toHaveBeenCalled();
     });
   });

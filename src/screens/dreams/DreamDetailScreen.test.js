@@ -143,11 +143,12 @@ describe('DreamDetailScreen', function () {
 
   describe('header', function () {
     it('renders dream title', function () {
-      var { getByText } = render(
+      var { getAllByText } = render(
         React.createElement(DreamDetailScreen),
       );
 
-      expect(getByText('Learn Guitar')).toBeTruthy();
+      // Title appears in header and info card
+      expect(getAllByText('Learn Guitar').length).toBeGreaterThanOrEqual(1);
     });
 
     it('navigates back on back press', function () {
@@ -209,18 +210,19 @@ describe('DreamDetailScreen', function () {
 
   describe('stats row', function () {
     it('renders stats (goals, tasks, milestones)', function () {
-      mockHookReturn.goals = [{ id: 1 }, { id: 2 }];
-      mockHookReturn.MILESTONES = [{ id: 1 }];
+      mockHookReturn.goals = [{ id: 1, title: 'Goal 1', completed: false, tasks: [] }, { id: 2, title: 'Goal 2', completed: false, tasks: [] }];
+      mockHookReturn.MILESTONES = [{ id: 1, label: 'Milestone 1', done: false, active: true }];
       mockHookReturn.doneTasks = 3;
       mockHookReturn.totalTasks = 8;
 
-      var { getByText } = render(
+      var { getByText, getAllByText } = render(
         React.createElement(DreamDetailScreen),
       );
 
       expect(getByText('Goals')).toBeTruthy();
       expect(getByText('Tasks')).toBeTruthy();
-      expect(getByText('Milestones')).toBeTruthy();
+      // "Milestones" appears in both stats row and section header when non-empty
+      expect(getAllByText('Milestones').length).toBeGreaterThanOrEqual(1);
       expect(getByText('3/8')).toBeTruthy();
     });
   });
@@ -248,14 +250,17 @@ describe('DreamDetailScreen', function () {
   });
 
   describe('milestones', function () {
-    it('does not render when empty', function () {
+    it('does not render milestone section when empty', function () {
       mockHookReturn.MILESTONES = [];
 
-      var { queryByText } = render(
+      var { getAllByText } = render(
         React.createElement(DreamDetailScreen),
       );
 
-      expect(queryByText('Milestones')).toBeNull();
+      // "Milestones" appears in stats row label even when empty,
+      // but the milestone section header should not be rendered.
+      // Stats row always shows it, so we expect exactly 1 match (the stats label).
+      expect(getAllByText('Milestones')).toHaveLength(1);
     });
 
     it('renders milestone items', function () {

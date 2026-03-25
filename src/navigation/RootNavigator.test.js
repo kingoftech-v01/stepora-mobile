@@ -1,7 +1,7 @@
 /**
  * Tests for src/navigation/RootNavigator.jsx
- * Covers loading spinner, auth flow routing (unauthenticated → AuthStack,
- * emailVerified false → EmailGate, not onboarded → Onboarding, full → MainTabs),
+ * Covers loading spinner, auth flow routing (unauthenticated -> AuthStack,
+ * emailVerified false -> EmailGate, not onboarded -> Onboarding, full -> MainTabs),
  * navigation theme colours, and screen registrations.
  */
 
@@ -25,6 +25,9 @@ var mockTheme = {
   isReady: true,
 };
 
+// Track captured screen names via a mock function (allowed in jest.mock factories)
+var mockCaptureScreen = jest.fn();
+
 jest.mock('../context/AuthContext', function () {
   return {
     useAuth: function () {
@@ -43,33 +46,33 @@ jest.mock('../context/ThemeContext', function () {
 
 // ─── Mock react-navigation ──────────────────────────────────────
 
-var capturedScreens = [];
-
 jest.mock('@react-navigation/native', function () {
+  var _React = require('react');
   var RN = require('react-native');
   return {
     NavigationContainer: function (props) {
-      return React.createElement(RN.View, { testID: 'nav-container' }, props.children);
+      return _React.createElement(RN.View, { testID: 'nav-container' }, props.children);
     },
   };
 });
 
 jest.mock('@react-navigation/native-stack', function () {
+  var _React = require('react');
   var RN = require('react-native');
   function MockScreen(props) {
-    capturedScreens.push(props.name);
-    return React.createElement(RN.View, { testID: 'screen-' + props.name });
+    mockCaptureScreen(props.name);
+    return _React.createElement(RN.View, { testID: 'screen-' + props.name });
   }
 
   function MockGroup(props) {
-    return React.createElement(RN.View, null, props.children);
+    return _React.createElement(RN.View, null, props.children);
   }
 
   return {
     createNativeStackNavigator: function () {
       return {
         Navigator: function (props) {
-          return React.createElement(RN.View, { testID: 'stack-navigator' }, props.children);
+          return _React.createElement(RN.View, { testID: 'stack-navigator' }, props.children);
         },
         Screen: MockScreen,
         Group: MockGroup,
@@ -80,13 +83,9 @@ jest.mock('@react-navigation/native-stack', function () {
 
 // ─── Stub every screen import so require() doesn't fail ─────────
 
-var stubScreen = function () {
-  return React.createElement(require('react-native').View, null);
-};
-
 // Auth Stack & MainTabs
-jest.mock('./AuthStack', function () { return stubScreen; });
-jest.mock('./MainTabs', function () { return stubScreen; });
+jest.mock('./AuthStack', function () { var _R = require('react'); return function () { return _R.createElement(require('react-native').View, null); }; });
+jest.mock('./MainTabs', function () { var _R = require('react'); return function () { return _R.createElement(require('react-native').View, null); }; });
 
 // Screens — stub them all as simple views
 var screenPaths = [
@@ -161,7 +160,7 @@ var screenPaths = [
 ];
 
 screenPaths.forEach(function (p) {
-  jest.mock(p, function () { return stubScreen; });
+  jest.mock(p, function () { var _R = require('react'); return function () { return _R.createElement(require('react-native').View, null); }; });
 });
 
 jest.mock('../config', function () {
@@ -170,8 +169,12 @@ jest.mock('../config', function () {
 
 var RootNavigator = require('./RootNavigator').default;
 
+function getCapturedScreens() {
+  return mockCaptureScreen.mock.calls.map(function (c) { return c[0]; });
+}
+
 beforeEach(function () {
-  capturedScreens = [];
+  mockCaptureScreen.mockClear();
   // Reset to defaults
   mockAuth.isAuthenticated = false;
   mockAuth.isLoading = false;
@@ -184,7 +187,7 @@ describe('RootNavigator', function () {
     it('shows loading spinner when auth is loading', function () {
       mockAuth.isLoading = true;
 
-      var { getByTestId, queryByTestId } = render(
+      var { queryByTestId } = render(
         React.createElement(RootNavigator),
       );
 
@@ -219,7 +222,7 @@ describe('RootNavigator', function () {
 
       render(React.createElement(RootNavigator));
 
-      expect(capturedScreens).toContain('Auth');
+      expect(getCapturedScreens()).toContain('Auth');
     });
 
     it('does not render MainTabs when not authenticated', function () {
@@ -227,110 +230,110 @@ describe('RootNavigator', function () {
 
       render(React.createElement(RootNavigator));
 
-      expect(capturedScreens).not.toContain('MainTabs');
+      expect(getCapturedScreens()).not.toContain('MainTabs');
     });
   });
 
   describe('email verification gate', function () {
     it('renders EmailGate when authenticated but email not verified', function () {
       mockAuth.isAuthenticated = true;
-      mockAuth.user = { emailVerified: false, hasOnboarded: false };
+      mockAuth.user = { emailVerified: false, onboardingCompleted: false };
 
       render(React.createElement(RootNavigator));
 
-      expect(capturedScreens).toContain('EmailGate');
-      expect(capturedScreens).not.toContain('MainTabs');
-      expect(capturedScreens).not.toContain('Auth');
+      expect(getCapturedScreens()).toContain('EmailGate');
+      expect(getCapturedScreens()).not.toContain('MainTabs');
+      expect(getCapturedScreens()).not.toContain('Auth');
     });
   });
 
   describe('onboarding flow', function () {
     it('renders Onboarding when authenticated, email verified, but not onboarded', function () {
       mockAuth.isAuthenticated = true;
-      mockAuth.user = { emailVerified: true, hasOnboarded: false };
+      mockAuth.user = { emailVerified: true, onboardingCompleted: false };
 
       render(React.createElement(RootNavigator));
 
-      expect(capturedScreens).toContain('Onboarding');
-      expect(capturedScreens).toContain('OnboardingSubscription');
-      expect(capturedScreens).toContain('PersonalityQuiz');
+      expect(getCapturedScreens()).toContain('Onboarding');
+      expect(getCapturedScreens()).toContain('OnboardingSubscription');
+      expect(getCapturedScreens()).toContain('PersonalityQuiz');
     });
 
     it('does not render MainTabs during onboarding', function () {
       mockAuth.isAuthenticated = true;
-      mockAuth.user = { emailVerified: true, hasOnboarded: false };
+      mockAuth.user = { emailVerified: true, onboardingCompleted: false };
 
       render(React.createElement(RootNavigator));
 
-      expect(capturedScreens).not.toContain('MainTabs');
+      expect(getCapturedScreens()).not.toContain('MainTabs');
     });
   });
 
   describe('main app flow', function () {
     it('renders MainTabs when fully authenticated and onboarded', function () {
       mockAuth.isAuthenticated = true;
-      mockAuth.user = { emailVerified: true, hasOnboarded: true };
+      mockAuth.user = { emailVerified: true, onboardingCompleted: true };
 
       render(React.createElement(RootNavigator));
 
-      expect(capturedScreens).toContain('MainTabs');
+      expect(getCapturedScreens()).toContain('MainTabs');
     });
 
     it('registers dream screens in main flow', function () {
       mockAuth.isAuthenticated = true;
-      mockAuth.user = { emailVerified: true, hasOnboarded: true };
+      mockAuth.user = { emailVerified: true, onboardingCompleted: true };
 
       render(React.createElement(RootNavigator));
 
-      expect(capturedScreens).toContain('DreamCreate');
-      expect(capturedScreens).toContain('DreamDetail');
-      expect(capturedScreens).toContain('DreamEdit');
-      expect(capturedScreens).toContain('CheckIn');
+      expect(getCapturedScreens()).toContain('DreamCreate');
+      expect(getCapturedScreens()).toContain('DreamDetail');
+      expect(getCapturedScreens()).toContain('DreamEdit');
+      expect(getCapturedScreens()).toContain('CheckIn');
     });
 
     it('registers chat screens in main flow', function () {
       mockAuth.isAuthenticated = true;
-      mockAuth.user = { emailVerified: true, hasOnboarded: true };
+      mockAuth.user = { emailVerified: true, onboardingCompleted: true };
 
       render(React.createElement(RootNavigator));
 
-      expect(capturedScreens).toContain('Chat');
-      expect(capturedScreens).toContain('NewConversation');
-      expect(capturedScreens).toContain('VoiceCall');
-      expect(capturedScreens).toContain('VideoCall');
+      expect(getCapturedScreens()).toContain('Chat');
+      expect(getCapturedScreens()).toContain('NewConversation');
+      expect(getCapturedScreens()).toContain('VoiceCall');
+      expect(getCapturedScreens()).toContain('VideoCall');
     });
 
     it('registers profile and settings screens in main flow', function () {
       mockAuth.isAuthenticated = true;
-      mockAuth.user = { emailVerified: true, hasOnboarded: true };
+      mockAuth.user = { emailVerified: true, onboardingCompleted: true };
 
       render(React.createElement(RootNavigator));
 
-      expect(capturedScreens).toContain('Settings');
-      expect(capturedScreens).toContain('EditProfile');
-      expect(capturedScreens).toContain('ChangePassword');
-      expect(capturedScreens).toContain('TwoFactor');
+      expect(getCapturedScreens()).toContain('Settings');
+      expect(getCapturedScreens()).toContain('EditProfile');
+      expect(getCapturedScreens()).toContain('ChangePassword');
+      expect(getCapturedScreens()).toContain('TwoFactor');
     });
 
     it('registers store and subscription screens in main flow', function () {
       mockAuth.isAuthenticated = true;
-      mockAuth.user = { emailVerified: true, hasOnboarded: true };
+      mockAuth.user = { emailVerified: true, onboardingCompleted: true };
 
       render(React.createElement(RootNavigator));
 
-      expect(capturedScreens).toContain('Store');
-      expect(capturedScreens).toContain('Subscription');
-      expect(capturedScreens).toContain('Notifications');
+      expect(getCapturedScreens()).toContain('Store');
+      expect(getCapturedScreens()).toContain('Subscription');
+      expect(getCapturedScreens()).toContain('Notifications');
     });
 
     it('does not include Auth screen in main flow', function () {
       mockAuth.isAuthenticated = true;
-      mockAuth.user = { emailVerified: true, hasOnboarded: true };
+      mockAuth.user = { emailVerified: true, onboardingCompleted: true };
 
       render(React.createElement(RootNavigator));
 
-      expect(capturedScreens).not.toContain('Auth');
-      expect(capturedScreens).not.toContain('EmailGate');
+      expect(getCapturedScreens()).not.toContain('Auth');
+      expect(getCapturedScreens()).not.toContain('EmailGate');
     });
   });
 

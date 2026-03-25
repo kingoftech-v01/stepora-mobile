@@ -67,6 +67,28 @@ jest.mock('../../services/endpoints', function () {
   };
 });
 
+// Mock Toast context
+jest.mock('../../context/ToastContext', function () {
+  return {
+    useToast: function () {
+      return {
+        showToast: jest.fn(),
+        dismissToast: jest.fn(),
+      };
+    },
+  };
+});
+
+// Fix FeatherIcon mock for require() without .default
+jest.mock('react-native-vector-icons/Feather', function () {
+  var React = require('react');
+  var comp = function (props) {
+    return React.createElement(require('react-native').Text, { testID: 'icon-' + props.name }, props.name);
+  };
+  comp.default = comp;
+  return comp;
+});
+
 // Mock components
 jest.mock('../../components/GlassCard', function () {
   var React = require('react');

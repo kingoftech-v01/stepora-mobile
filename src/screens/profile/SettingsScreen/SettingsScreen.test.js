@@ -157,21 +157,22 @@ describe('SettingsScreen', function () {
     });
 
     it('renders notification toggles', function () {
-      var { getByLabelText } = render(
+      var { getAllByLabelText } = render(
         React.createElement(SettingsScreen),
       );
 
-      expect(getByLabelText('Push Notifications')).toBeTruthy();
-      expect(getByLabelText('Email Notifications')).toBeTruthy();
-      expect(getByLabelText('Buddy Reminders')).toBeTruthy();
+      // Labels appear on both Tile wrapper and Toggle switch
+      expect(getAllByLabelText('Push Notifications').length).toBeGreaterThanOrEqual(1);
+      expect(getAllByLabelText('Email Notifications').length).toBeGreaterThanOrEqual(1);
+      expect(getAllByLabelText('Buddy Reminders').length).toBeGreaterThanOrEqual(1);
     });
 
     it('renders DND toggle', function () {
-      var { getByLabelText } = render(
+      var { getAllByLabelText } = render(
         React.createElement(SettingsScreen),
       );
 
-      expect(getByLabelText('Do Not Disturb')).toBeTruthy();
+      expect(getAllByLabelText('Do Not Disturb').length).toBeGreaterThanOrEqual(1);
     });
   });
 
@@ -239,12 +240,13 @@ describe('SettingsScreen', function () {
     it('renders language picker when showLang is true', function () {
       mockHookReturn.showLang = true;
 
-      var { getByText } = render(
+      var { getByText, getAllByText } = render(
         React.createElement(SettingsScreen),
       );
 
       expect(getByText('Choose Language')).toBeTruthy();
-      expect(getByText('English')).toBeTruthy();
+      // "English" appears in preferences tile and language list
+      expect(getAllByText('English').length).toBeGreaterThanOrEqual(1);
       expect(getByText('French')).toBeTruthy();
     });
   });
@@ -265,11 +267,12 @@ describe('SettingsScreen', function () {
     it('renders delete confirmation when showDelete is true', function () {
       mockHookReturn.showDelete = true;
 
-      var { getByText } = render(
+      var { getAllByText, getByText } = render(
         React.createElement(SettingsScreen),
       );
 
-      expect(getByText('Delete Account')).toBeTruthy();
+      // "Delete Account" appears in danger zone button and modal title
+      expect(getAllByText('Delete Account').length).toBeGreaterThanOrEqual(1);
       expect(getByText('This cannot be undone')).toBeTruthy();
     });
   });

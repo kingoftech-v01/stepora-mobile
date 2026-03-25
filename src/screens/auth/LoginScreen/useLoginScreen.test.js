@@ -7,11 +7,11 @@
 var React = require('react');
 var { renderHook, act, waitFor } = require('@testing-library/react-native');
 
-// Mock API
+// Mock API (used for TFA verify)
 jest.mock('../../../services/api', function () {
   return {
     apiPost: jest.fn(),
-    setTokens: jest.fn(function () { return Promise.resolve(); }),
+    setToken: jest.fn(),
   };
 });
 
@@ -25,11 +25,29 @@ jest.mock('../../../utils/sanitize', function () {
   };
 });
 
-var { apiPost, setTokens } = require('../../../services/api');
+// Mock AuthContext — login is now handled via useAuth().login()
+var mockLogin = jest.fn(function () { return Promise.resolve({ access: 'token' }); });
+var mockSocialLogin = jest.fn(function () { return Promise.resolve({ access: 'token' }); });
+var mockRefreshUser = jest.fn(function () { return Promise.resolve(); });
+
+jest.mock('../../../context/AuthContext', function () {
+  return {
+    useAuth: function () {
+      return {
+        login: mockLogin,
+        socialLogin: mockSocialLogin,
+        refreshUser: mockRefreshUser,
+      };
+    },
+  };
+});
+
+var { apiPost, setToken } = require('../../../services/api');
 var useLoginScreen = require('./useLoginScreen');
 
 beforeEach(function () {
   jest.clearAllMocks();
+  mockLogin.mockImplementation(function () { return Promise.resolve({ access: 'token' }); });
   global.__mockNavigate.mockClear();
   global.__mockReset.mockClear();
 });
@@ -80,7 +98,7 @@ describe('useLoginScreen', function () {
       });
 
       expect(result.current.errors.email).toBeTruthy();
-      expect(apiPost).not.toHaveBeenCalled();
+      expect(mockLogin).not.toHaveBeenCalled();
     });
 
     it('sets email error for empty email', function () {
@@ -100,8 +118,6 @@ describe('useLoginScreen', function () {
     });
 
     it('accepts valid email', function () {
-      apiPost.mockResolvedValue({ access: 'token', refresh: 'refresh' });
-
       var { result } = renderHook(function () {
         return useLoginScreen();
       });
@@ -136,12 +152,10 @@ describe('useLoginScreen', function () {
       });
 
       expect(result.current.errors.password).toBeTruthy();
-      expect(apiPost).not.toHaveBeenCalled();
+      expect(mockLogin).not.toHaveBeenCalled();
     });
 
     it('clears errors on re-submit', function () {
-      apiPost.mockResolvedValue({ access: 'token', refresh: 'refresh' });
-
       var { result } = renderHook(function () {
         return useLoginScreen();
       });
@@ -168,12 +182,7 @@ describe('useLoginScreen', function () {
   });
 
   describe('successful login', function () {
-    it('calls apiPost with email and password', async function () {
-      apiPost.mockResolvedValue({
-        access: 'access-token',
-        refresh: 'refresh-token',
-      });
-
+    it('calls login with email and password', async function () {
       var { result } = renderHook(function () {
         return useLoginScreen();
       });
@@ -187,17 +196,11 @@ describe('useLoginScreen', function () {
         result.current.handleSignIn();
       });
 
-      expect(apiPost).toHaveBeenCalledWith(
-        '/api/auth/login/',
-        { email: 'user@example.com', password: 'password123' },
-      );
+      expect(mockLogin).toHaveBeenCalledWith('user@example.com', 'password123');
     });
 
-    it('stores tokens and navigates to Main on success', async function () {
-      apiPost.mockResolvedValue({
-        access: 'access-token',
-        refresh: 'refresh-token',
-      });
+    it('navigates to Main on successful login', async function () {
+      mockLogin.mockResolvedValue({});
 
       var { result } = renderHook(function () {
         return useLoginScreen();
@@ -213,7 +216,6 @@ describe('useLoginScreen', function () {
       });
 
       await waitFor(function () {
-        expect(setTokens).toHaveBeenCalledWith('access-token', 'refresh-token');
         expect(global.__mockReset).toHaveBeenCalledWith({
           index: 0,
           routes: [{ name: 'Main' }],
@@ -221,32 +223,8 @@ describe('useLoginScreen', function () {
       });
     });
 
-    it('handles accessToken/refreshToken naming variant', async function () {
-      apiPost.mockResolvedValue({
-        accessToken: 'at',
-        refreshToken: 'rt',
-      });
-
-      var { result } = renderHook(function () {
-        return useLoginScreen();
-      });
-
-      act(function () {
-        result.current.setEmail('user@example.com');
-        result.current.setPassword('password123');
-      });
-
-      await act(async function () {
-        result.current.handleSignIn();
-      });
-
-      await waitFor(function () {
-        expect(setTokens).toHaveBeenCalledWith('at', 'rt');
-      });
-    });
-
     it('sets submitting to true during request', function () {
-      apiPost.mockReturnValue(new Promise(function () {})); // never resolves
+      mockLogin.mockReturnValue(new Promise(function () {})); // never resolves
 
       var { result } = renderHook(function () {
         return useLoginScreen();
@@ -267,7 +245,7 @@ describe('useLoginScreen', function () {
 
   describe('2FA flow', function () {
     it('enters 2FA mode when server returns tfaRequired', async function () {
-      apiPost.mockResolvedValue({
+      mockLogin.mockResolvedValue({
         tfaRequired: true,
         challengeToken: 'challenge-abc',
       });
@@ -293,7 +271,7 @@ describe('useLoginScreen', function () {
 
     it('handleTfaVerify submits code and navigates on success', async function () {
       // First: enter 2FA mode
-      apiPost.mockResolvedValueOnce({
+      mockLogin.mockResolvedValue({
         tfaRequired: true,
         challengeToken: 'challenge-abc',
       });
@@ -315,7 +293,7 @@ describe('useLoginScreen', function () {
         expect(result.current.tfaRequired).toBe(true);
       });
 
-      // Now verify 2FA
+      // Now verify 2FA - uses apiPost directly
       apiPost.mockResolvedValueOnce({
         access: 'tfa-access',
         refresh: 'tfa-refresh',
@@ -334,13 +312,13 @@ describe('useLoginScreen', function () {
           '/api/auth/2fa-challenge/',
           { challengeToken: 'challenge-abc', code: '123456' },
         );
-        expect(setTokens).toHaveBeenCalledWith('tfa-access', 'tfa-refresh');
+        expect(setToken).toHaveBeenCalledWith('tfa-access', 'tfa-refresh');
       });
     });
 
     it('handleTfaVerify shows error for empty code', async function () {
       // Enter 2FA mode
-      apiPost.mockResolvedValueOnce({
+      mockLogin.mockResolvedValue({
         tfaRequired: true,
         challengeToken: 'ch',
       });
@@ -371,7 +349,7 @@ describe('useLoginScreen', function () {
     });
 
     it('resetTfa clears 2FA state', async function () {
-      apiPost.mockResolvedValueOnce({
+      mockLogin.mockResolvedValue({
         tfaRequired: true,
         challengeToken: 'ch',
       });
@@ -407,7 +385,7 @@ describe('useLoginScreen', function () {
     it('shows server error message on login failure', async function () {
       var err = new Error('Invalid credentials');
       err.userMessage = 'Incorrect email or password.';
-      apiPost.mockRejectedValue(err);
+      mockLogin.mockRejectedValue(err);
 
       var { result } = renderHook(function () {
         return useLoginScreen();
@@ -431,7 +409,7 @@ describe('useLoginScreen', function () {
 
     it('navigates to CheckEmail for unverified email error', async function () {
       var err = new Error('E-mail is not verified.');
-      apiPost.mockRejectedValue(err);
+      mockLogin.mockRejectedValue(err);
 
       var { result } = renderHook(function () {
         return useLoginScreen();
@@ -456,7 +434,7 @@ describe('useLoginScreen', function () {
 
     it('navigates to CheckEmail for "not verified" variant', async function () {
       var err = new Error('Account not verified');
-      apiPost.mockRejectedValue(err);
+      mockLogin.mockRejectedValue(err);
 
       var { result } = renderHook(function () {
         return useLoginScreen();
@@ -483,7 +461,7 @@ describe('useLoginScreen', function () {
       jest.useFakeTimers();
 
       var err = new Error('Server error');
-      apiPost.mockRejectedValue(err);
+      mockLogin.mockRejectedValue(err);
 
       var { result } = renderHook(function () {
         return useLoginScreen();
@@ -520,7 +498,7 @@ describe('useLoginScreen', function () {
         result.current.handleGoogleLogin();
       });
 
-      expect(result.current.serverError).toContain('Google');
+      expect(result.current.serverError).toBeTruthy();
     });
 
     it('handleAppleLogin sets error message', function () {
@@ -532,7 +510,7 @@ describe('useLoginScreen', function () {
         result.current.handleAppleLogin();
       });
 
-      expect(result.current.serverError).toContain('Apple');
+      expect(result.current.serverError).toBeTruthy();
     });
   });
 

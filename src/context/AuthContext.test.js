@@ -57,7 +57,7 @@ var mockUser = {
   email: 'test@example.com',
   displayName: 'Test User',
   emailVerified: true,
-  hasOnboarded: true,
+  onboardingCompleted: true,
   subscription: 'premium',
 };
 
@@ -359,8 +359,11 @@ describe('AuthContext', function () {
         await result.current.completeOnboarding();
       });
 
-      expect(mockApiPost).toHaveBeenCalledWith('/api/users/complete-onboarding/');
-      expect(result.current.user.hasOnboarded).toBe(true);
+      expect(mockApiPost).toHaveBeenCalledWith(
+        '/api/users/complete-onboarding/',
+        expect.anything(),
+      );
+      expect(result.current.user.onboardingCompleted).toBe(true);
     });
   });
 

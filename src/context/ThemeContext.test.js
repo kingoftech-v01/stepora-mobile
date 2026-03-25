@@ -7,33 +7,24 @@
 var React = require('react');
 var { renderHook, act, waitFor } = require('@testing-library/react-native');
 var AsyncStorage = require('@react-native-async-storage/async-storage').default;
+var { ThemeProvider, useTheme, ACCENT_PRESETS } = require('./ThemeContext');
 
-// Must reset modules each time so ThemeProvider has fresh state
 beforeEach(function () {
   jest.clearAllMocks();
   AsyncStorage._reset();
 });
 
-// We re-require to get fresh context per test
-function loadModule() {
-  jest.resetModules();
-  return require('./ThemeContext');
-}
-
-function makeWrapper(mod) {
-  return function wrapper(props) {
-    return React.createElement(mod.ThemeProvider, null, props.children);
-  };
+function wrapper(props) {
+  return React.createElement(ThemeProvider, null, props.children);
 }
 
 describe('ThemeContext', function () {
   describe('useTheme outside provider', function () {
     it('throws error when used outside ThemeProvider', function () {
-      var mod = loadModule();
       var spy = jest.spyOn(console, 'error').mockImplementation(function () {});
 
       expect(function () {
-        renderHook(function () { return mod.useTheme(); });
+        renderHook(function () { return useTheme(); });
       }).toThrow('useTheme must be used within ThemeProvider');
 
       spy.mockRestore();
@@ -42,8 +33,7 @@ describe('ThemeContext', function () {
 
   describe('default state', function () {
     it('starts with cosmos theme (dark) by default', async function () {
-      var mod = loadModule();
-      var { result } = renderHook(function () { return mod.useTheme(); }, { wrapper: makeWrapper(mod) });
+      var { result } = renderHook(function () { return useTheme(); }, { wrapper: wrapper });
 
       await waitFor(function () {
         expect(result.current.isReady).toBe(true);
@@ -55,8 +45,7 @@ describe('ThemeContext', function () {
     });
 
     it('has default purple accent color', async function () {
-      var mod = loadModule();
-      var { result } = renderHook(function () { return mod.useTheme(); }, { wrapper: makeWrapper(mod) });
+      var { result } = renderHook(function () { return useTheme(); }, { wrapper: wrapper });
 
       await waitFor(function () {
         expect(result.current.isReady).toBe(true);
@@ -66,8 +55,7 @@ describe('ThemeContext', function () {
     });
 
     it('provides dark theme colors by default', async function () {
-      var mod = loadModule();
-      var { result } = renderHook(function () { return mod.useTheme(); }, { wrapper: makeWrapper(mod) });
+      var { result } = renderHook(function () { return useTheme(); }, { wrapper: wrapper });
 
       await waitFor(function () {
         expect(result.current.isReady).toBe(true);
@@ -80,8 +68,7 @@ describe('ThemeContext', function () {
 
   describe('setTheme', function () {
     it('switches to light mode with "default" id', async function () {
-      var mod = loadModule();
-      var { result } = renderHook(function () { return mod.useTheme(); }, { wrapper: makeWrapper(mod) });
+      var { result } = renderHook(function () { return useTheme(); }, { wrapper: wrapper });
 
       await waitFor(function () {
         expect(result.current.isReady).toBe(true);
@@ -97,8 +84,7 @@ describe('ThemeContext', function () {
     });
 
     it('switches to dark mode with "cosmos" id', async function () {
-      var mod = loadModule();
-      var { result } = renderHook(function () { return mod.useTheme(); }, { wrapper: makeWrapper(mod) });
+      var { result } = renderHook(function () { return useTheme(); }, { wrapper: wrapper });
 
       await waitFor(function () {
         expect(result.current.isReady).toBe(true);
@@ -116,8 +102,7 @@ describe('ThemeContext', function () {
     });
 
     it('maps "dark" alias to cosmos', async function () {
-      var mod = loadModule();
-      var { result } = renderHook(function () { return mod.useTheme(); }, { wrapper: makeWrapper(mod) });
+      var { result } = renderHook(function () { return useTheme(); }, { wrapper: wrapper });
 
       await waitFor(function () {
         expect(result.current.isReady).toBe(true);
@@ -135,8 +120,7 @@ describe('ThemeContext', function () {
     });
 
     it('maps "light" alias to default', async function () {
-      var mod = loadModule();
-      var { result } = renderHook(function () { return mod.useTheme(); }, { wrapper: makeWrapper(mod) });
+      var { result } = renderHook(function () { return useTheme(); }, { wrapper: wrapper });
 
       await waitFor(function () {
         expect(result.current.isReady).toBe(true);
@@ -151,8 +135,7 @@ describe('ThemeContext', function () {
     });
 
     it('ignores invalid theme ids', async function () {
-      var mod = loadModule();
-      var { result } = renderHook(function () { return mod.useTheme(); }, { wrapper: makeWrapper(mod) });
+      var { result } = renderHook(function () { return useTheme(); }, { wrapper: wrapper });
 
       await waitFor(function () {
         expect(result.current.isReady).toBe(true);
@@ -168,8 +151,7 @@ describe('ThemeContext', function () {
 
   describe('setAccentColor', function () {
     it('changes accent color with valid hex', async function () {
-      var mod = loadModule();
-      var { result } = renderHook(function () { return mod.useTheme(); }, { wrapper: makeWrapper(mod) });
+      var { result } = renderHook(function () { return useTheme(); }, { wrapper: wrapper });
 
       await waitFor(function () {
         expect(result.current.isReady).toBe(true);
@@ -183,8 +165,7 @@ describe('ThemeContext', function () {
     });
 
     it('rejects invalid hex values', async function () {
-      var mod = loadModule();
-      var { result } = renderHook(function () { return mod.useTheme(); }, { wrapper: makeWrapper(mod) });
+      var { result } = renderHook(function () { return useTheme(); }, { wrapper: wrapper });
 
       await waitFor(function () {
         expect(result.current.isReady).toBe(true);
@@ -198,8 +179,7 @@ describe('ThemeContext', function () {
     });
 
     it('computes accent-derived colors (soft, glow, border)', async function () {
-      var mod = loadModule();
-      var { result } = renderHook(function () { return mod.useTheme(); }, { wrapper: makeWrapper(mod) });
+      var { result } = renderHook(function () { return useTheme(); }, { wrapper: wrapper });
 
       await waitFor(function () {
         expect(result.current.isReady).toBe(true);
@@ -223,8 +203,7 @@ describe('ThemeContext', function () {
         return Promise.resolve(null);
       });
 
-      var mod = loadModule();
-      var { result } = renderHook(function () { return mod.useTheme(); }, { wrapper: makeWrapper(mod) });
+      var { result } = renderHook(function () { return useTheme(); }, { wrapper: wrapper });
 
       await waitFor(function () {
         expect(result.current.isReady).toBe(true);
@@ -236,8 +215,7 @@ describe('ThemeContext', function () {
     });
 
     it('persists theme on change', async function () {
-      var mod = loadModule();
-      var { result } = renderHook(function () { return mod.useTheme(); }, { wrapper: makeWrapper(mod) });
+      var { result } = renderHook(function () { return useTheme(); }, { wrapper: wrapper });
 
       await waitFor(function () {
         expect(result.current.isReady).toBe(true);
@@ -255,9 +233,8 @@ describe('ThemeContext', function () {
 
   describe('ACCENT_PRESETS', function () {
     it('exports 10 accent presets', function () {
-      var mod = loadModule();
-      expect(mod.ACCENT_PRESETS).toHaveLength(10);
-      expect(mod.ACCENT_PRESETS[0]).toEqual({ name: 'Purple', color: '#8B5CF6' });
+      expect(ACCENT_PRESETS).toHaveLength(10);
+      expect(ACCENT_PRESETS[0]).toEqual({ name: 'Purple', color: '#8B5CF6' });
     });
   });
 });

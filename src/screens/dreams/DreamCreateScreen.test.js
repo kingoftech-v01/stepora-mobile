@@ -13,7 +13,9 @@ var mockHookReturn = {
   navigation: {
     goBack: jest.fn(),
     navigate: jest.fn(),
+    reset: jest.fn(),
   },
+  navigateBack: jest.fn(),
   step: 0,
   setStep: jest.fn(),
   STEPS: ['Details', 'Category', 'Timeframe'],
@@ -119,7 +121,7 @@ describe('DreamCreateScreen', function () {
       );
 
       fireEvent.press(getByLabelText('Go back'));
-      expect(mockHookReturn.navigation.goBack).toHaveBeenCalled();
+      expect(mockHookReturn.navigateBack).toHaveBeenCalled();
     });
 
     it('goes to previous step on back button at step > 0', function () {
@@ -260,12 +262,18 @@ describe('DreamCreateScreen', function () {
     });
 
     it('calls handleNext on next press', function () {
+      // Enable the next button for this test
+      var origCanNext = mockHookReturn.canNext;
+      mockHookReturn.canNext = function () { return true; };
+
       var { getByLabelText } = render(
         React.createElement(DreamCreateScreen),
       );
 
       fireEvent.press(getByLabelText('Next step'));
       expect(mockHookReturn.handleNext).toHaveBeenCalled();
+
+      mockHookReturn.canNext = origCanNext;
     });
   });
 

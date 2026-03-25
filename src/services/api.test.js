@@ -4,18 +4,18 @@
  * offline queue, and auth event listeners.
  */
 
-var AsyncStorage = require('@react-native-async-storage/async-storage').default;
-
 // We need to reset modules between tests that manipulate internal state
 var api;
+var AsyncStorage;
 
 beforeEach(function () {
   jest.resetModules();
   fetchMock.resetMocks();
-  AsyncStorage._reset();
   jest.clearAllMocks();
 
-  // Re-require to get fresh internal state (_accessToken, _isRefreshing, etc.)
+  // Re-require both AsyncStorage and api to get matching references after resetModules
+  AsyncStorage = require('@react-native-async-storage/async-storage').default;
+  AsyncStorage._reset();
   api = require('./api');
 });
 

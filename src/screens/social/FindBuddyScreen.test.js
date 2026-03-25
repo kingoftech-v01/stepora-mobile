@@ -70,12 +70,11 @@ describe('FindBuddyScreen', function () {
     });
 
     it('navigates back on back press', function () {
-      var { getAllByProps } = render(
+      var { getByLabelText } = render(
         React.createElement(FindBuddyScreen),
       );
 
-      // Press the first touchable (back button)
-      fireEvent.press(getAllByProps({ activeOpacity: 0.7 })[0]);
+      fireEvent.press(getByLabelText('Go back'));
       expect(mockHookReturn.navigation.goBack).toHaveBeenCalled();
     });
   });

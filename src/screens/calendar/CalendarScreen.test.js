@@ -216,12 +216,13 @@ describe('CalendarScreen', function () {
 
   describe('events', function () {
     it('shows Today and Tomorrow sections when no day selected', function () {
-      var { getByText } = render(
+      var { getAllByText } = render(
         React.createElement(CalendarScreen),
       );
 
-      expect(getByText('Today')).toBeTruthy();
-      expect(getByText('Tomorrow')).toBeTruthy();
+      // "Today" may appear in both header button and section header
+      expect(getAllByText('Today').length).toBeGreaterThanOrEqual(1);
+      expect(getAllByText('Tomorrow').length).toBeGreaterThanOrEqual(1);
     });
 
     it('shows no tasks message when today is empty', function () {
