@@ -70,7 +70,38 @@ var useDreamDetailScreen = function () {
   // Mutations
   var taskCompleteMut = useMutation({
     mutationFn: function (taskId) { return apiPost(DREAMS.TASKS.COMPLETE(taskId)); },
-    onSuccess: function () {
+    onMutate: function (taskId) {
+      queryClient.cancelQueries({ queryKey: ['dream', id] });
+      var prev = queryClient.getQueryData(['dream', id]);
+      queryClient.setQueryData(['dream', id], function (old) {
+        if (!old || !old.milestones) return old;
+        return Object.assign({}, old, {
+          milestones: old.milestones.map(function (m) {
+            return Object.assign({}, m, {
+              goals: (m.goals || []).map(function (g) {
+                return Object.assign({}, g, {
+                  tasks: (g.tasks || []).map(function (tk) {
+                    if (tk.id === taskId) {
+                      var wasCompleted = tk.status === 'completed' || tk.completed;
+                      return Object.assign({}, tk, {
+                        completed: !wasCompleted,
+                        status: wasCompleted ? 'in_progress' : 'completed',
+                      });
+                    }
+                    return tk;
+                  }),
+                });
+              }),
+            });
+          }),
+        });
+      });
+      return { prev: prev };
+    },
+    onError: function (err, taskId, ctx) {
+      if (ctx && ctx.prev) queryClient.setQueryData(['dream', id], ctx.prev);
+    },
+    onSettled: function () {
       queryClient.invalidateQueries({ queryKey: ['dream', id] });
       queryClient.invalidateQueries({ queryKey: ['dreams'] });
     },
@@ -195,9 +226,7 @@ var useDreamDetailScreen = function () {
           : g;
       });
     });
-    apiPost(DREAMS.TASKS.COMPLETE(tId)).catch(function () {
-      queryClient.invalidateQueries({ queryKey: ['dream', id] });
-    });
+    taskCompleteMut.mutate(tId);
   };
 
   var handleAddGoal = function () {

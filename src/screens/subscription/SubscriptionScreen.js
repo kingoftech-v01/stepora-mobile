@@ -85,6 +85,10 @@ var SubscriptionScreen = function () {
   var navigation = useNavigation();
   var queryClient = useQueryClient();
 
+  // Offline guard: try to use NetworkContext if available, else assume online
+  var isOnline = true;
+  try { var net = require('../../context/NetworkContext'); isOnline = net.useNetwork().isOnline; } catch(e) {}
+
   var [refreshing, setRefreshing] = useState(false);
   var [showPayments, setShowPayments] = useState(false);
 
@@ -347,6 +351,10 @@ var SubscriptionScreen = function () {
                   variant: 'secondary',
                   size: 'sm',
                   onPress: function () {
+                    if (!isOnline) {
+                      Alert.alert('Offline', 'Subscription changes require an internet connection.');
+                      return;
+                    }
                     cancelPendingMut.mutate();
                   },
                   disabled: cancelPendingMut.isPending,
@@ -386,6 +394,10 @@ var SubscriptionScreen = function () {
                 variant: 'primary',
                 size: 'sm',
                 onPress: function () {
+                  if (!isOnline) {
+                    Alert.alert('Offline', 'Subscription changes require an internet connection.');
+                    return;
+                  }
                   reactivateMut.mutate();
                 },
                 disabled: reactivateMut.isPending,

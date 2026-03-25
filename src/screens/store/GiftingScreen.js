@@ -46,6 +46,10 @@ var GiftingScreen = function () {
   var navigation = useNavigation();
   var queryClient = useQueryClient();
 
+  // Offline guard: try to use NetworkContext if available, else assume online
+  var isOnline = true;
+  try { var net = require('../../context/NetworkContext'); isOnline = net.useNetwork().isOnline; } catch(e) {}
+
   var [activeTab, setActiveTab] = useState('browse');
   var [historyTab, setHistoryTab] = useState('sent');
   var [selectedItem, setSelectedItem] = useState(null);
@@ -162,6 +166,10 @@ var GiftingScreen = function () {
 
   var handleSendGift = function () {
     if (!selectedItem || !selectedRecipient) return;
+    if (!isOnline) {
+      Alert.alert('Offline', 'Sending gifts requires an internet connection.');
+      return;
+    }
     sendGiftMut.mutate({
       item_id: selectedItem.id,
       recipient_id: selectedRecipient.id,
@@ -170,6 +178,10 @@ var GiftingScreen = function () {
   };
 
   var handleClaimGift = function (giftId) {
+    if (!isOnline) {
+      Alert.alert('Offline', 'Claiming gifts requires an internet connection.');
+      return;
+    }
     claimGiftMut.mutate(giftId);
   };
 

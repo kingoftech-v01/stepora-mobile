@@ -389,6 +389,12 @@ export function apiUpload(url, formData, options) {
 // ── Offline Mutation Queue ──────────────────────────────────────
 var QUEUE_KEY = 'dp-offline-queue';
 
+// Anti-abuse: session counters for offline queue
+var _offlineTaskCount = 0;
+var _offlineJournalCount = 0;
+var MAX_OFFLINE_TASKS = 20;
+var MAX_OFFLINE_JOURNALS = 10;
+
 function getQueue() {
   return AsyncStorage.getItem(QUEUE_KEY)
     .then(function (raw) {
@@ -410,31 +416,67 @@ export function getOfflineQueueCount() {
 }
 
 export function enqueueOfflineMutation(url, options) {
+  var method = options.method || 'POST';
   var sensitivePatterns = [
     '/auth/',
     '/2fa/',
     '/password/',
-    '/delete-account',
+    '/users/delete-account',
+    '/users/change-email',
+    '/users/2fa/',
+    '/users/export',
     '/conversations/',
-    '/users/',
     '/social/report',
     '/export',
     '/checkout',
     '/subscription/',
+    '/store/purchase',
+    '/store/equip',
+    '/gamification/streak-freeze',
+    '/referrals/redeem',
+    '/leagues/claim',
   ];
   for (var i = 0; i < sensitivePatterns.length; i++) {
     if (url.indexOf(sensitivePatterns[i]) !== -1) return;
   }
+
+  // Anti-abuse: enforce per-type limits
+  if (url.indexOf('/tasks/') !== -1 && (method === 'PATCH' || method === 'PUT')) {
+    _offlineTaskCount++;
+    if (_offlineTaskCount > MAX_OFFLINE_TASKS) {
+      console.warn('[OfflineQueue] Offline task limit reached (' + MAX_OFFLINE_TASKS + ')');
+      return;
+    }
+  }
+  if (url.indexOf('/journal/') !== -1 && method === 'POST') {
+    _offlineJournalCount++;
+    if (_offlineJournalCount > MAX_OFFLINE_JOURNALS) {
+      console.warn('[OfflineQueue] Offline journal limit reached (' + MAX_OFFLINE_JOURNALS + ')');
+      return;
+    }
+  }
+
   getQueue().then(function (queue) {
     var filtered = queue.filter(function (item) {
       return Date.now() - item.timestamp < 86400000;
     });
-    filtered.push({
+    var newItem = {
+      id: Date.now().toString(36) + Math.random().toString(36).substr(2, 9),
       url: url,
-      method: options.method || 'POST',
+      method: method,
       body: options.body || null,
       timestamp: Date.now(),
+      retryCount: 0,
+    };
+    // Deduplication: if queue already has an item with same URL + method, replace it
+    var existingIdx = filtered.findIndex(function (item) {
+      return item.url === url && item.method === method;
     });
+    if (existingIdx !== -1) {
+      filtered[existingIdx] = newItem;
+    } else {
+      filtered.push(newItem);
+    }
     saveQueue(filtered);
   });
 }
@@ -452,6 +494,7 @@ export async function flushOfflineQueue() {
       await request(item.url, {
         method: item.method,
         body: item.body ? JSON.parse(item.body) : undefined,
+        headers: { 'X-Idempotency-Key': item.id },
       });
       flushed++;
     } catch (e) {
@@ -461,11 +504,23 @@ export async function flushOfflineQueue() {
         failed = failed.concat(queue.slice(i + 1));
         break;
       }
-      // Online but request failed (server error) — discard this item and continue
-      flushed++;
+      // Online but request failed — check if 5xx and retryable
+      var statusCode = (e && e.status) || 0;
+      if (statusCode >= 500 && (item.retryCount || 0) < 5) {
+        item.retryCount = (item.retryCount || 0) + 1;
+        failed.push(item);
+      } else {
+        // 4xx or max retries reached: discard
+        flushed++;
+      }
     }
   }
 
   await saveQueue(failed);
+
+  // Reset offline anti-abuse counters on reconnect flush
+  _offlineTaskCount = 0;
+  _offlineJournalCount = 0;
+
   return flushed;
 }

@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   apiGet,
   apiPost,
@@ -9,9 +10,12 @@ import {
   initToken,
   refreshAccessToken,
   addAuthEventListener,
+  flushOfflineQueue,
 } from '../services/api';
 import { AUTH, USERS } from '../services/endpoints';
 import { registerTokenWithBackend } from '../services/pushNotifications';
+
+var CACHED_USER_KEY = 'dp-cached-user';
 
 var AuthContext = createContext(null);
 
@@ -28,6 +32,20 @@ export function AuthProvider({ children }) {
     return apiGet(USERS.ME).then(function (data) {
       setUser(data);
       setIsAuthenticated(true);
+      // Cache critical user fields for offline access
+      AsyncStorage.setItem(CACHED_USER_KEY, JSON.stringify({
+        id: data.id,
+        displayName: data.displayName || data.display_name,
+        avatarUrl: data.avatarUrl || data.avatar_url,
+        onboardingCompleted: data.onboardingCompleted,
+        subscription: data.subscription,
+      })).catch(function (e) {
+        console.warn('[Auth] cached user save failed:', e);
+      });
+      // Flush offline queue after successful auth
+      flushOfflineQueue().catch(function (e) {
+        console.warn('Offline flush failed:', e);
+      });
       // Register for push notifications after auth
       try {
         registerTokenWithBackend(apiPost).catch(function (err) {
@@ -44,6 +62,24 @@ export function AuthProvider({ children }) {
   useEffect(
     function () {
       var ignore = false;
+
+      // Load cached user as initial state before network fetch
+      AsyncStorage.getItem(CACHED_USER_KEY)
+        .then(function (cached) {
+          if (ignore) return;
+          if (cached) {
+            try {
+              var parsed = JSON.parse(cached);
+              setUser(parsed);
+              setIsAuthenticated(true);
+            } catch (_e) {
+              // Corrupted cache — ignore
+            }
+          }
+        })
+        .catch(function () {
+          // Cache read failed — continue with network fetch
+        });
 
       initToken()
         .then(function (token) {
@@ -146,6 +182,7 @@ export function AuthProvider({ children }) {
       })
       .finally(function () {
         clearAuth();
+        AsyncStorage.removeItem(CACHED_USER_KEY).catch(function () {});
         setUser(null);
         setIsAuthenticated(false);
         // Navigation to login is handled by the navigator checking isAuthenticated

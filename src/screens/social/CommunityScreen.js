@@ -17,7 +17,7 @@ var {
   StyleSheet,
 } = require('react-native');
 var { useNavigation } = require('@react-navigation/native');
-var { useQuery, useQueryClient } = require('@tanstack/react-query');
+var { useQuery, useQueryClient, useMutation } = require('@tanstack/react-query');
 var { apiGet, apiPost } = require('../../services/api');
 var { SOCIAL } = require('../../services/endpoints');
 var useInfiniteList = require('../../hooks/useInfiniteList');
@@ -156,15 +156,50 @@ var CommunityScreen = function () {
     [queryClient],
   );
 
+  var likeMut = useMutation({
+    mutationFn: function (postId) {
+      return apiPost(SOCIAL.POSTS.LIKE(postId));
+    },
+    onMutate: function (postId) {
+      queryClient.cancelQueries({ queryKey: ['social-posts-feed'] });
+      var prev = queryClient.getQueryData(['social-posts-feed']);
+      queryClient.setQueryData(['social-posts-feed'], function (old) {
+        if (!old || !old.pages) return old;
+        return Object.assign({}, old, {
+          pages: old.pages.map(function (page) {
+            var results = (page && page.results) || [];
+            if (!Array.isArray(results)) return page;
+            return Object.assign({}, page, {
+              results: results.map(function (p) {
+                if (p.id !== postId) return p;
+                var wasLiked = !!(p.isLiked || p.is_liked);
+                var count = p.likesCount || p.likes_count || 0;
+                return Object.assign({}, p, {
+                  isLiked: !wasLiked,
+                  is_liked: !wasLiked,
+                  likesCount: wasLiked ? Math.max(0, count - 1) : count + 1,
+                  likes_count: wasLiked ? Math.max(0, count - 1) : count + 1,
+                });
+              }),
+            });
+          }),
+        });
+      });
+      return { prev: prev };
+    },
+    onError: function (err, postId, ctx) {
+      if (ctx && ctx.prev) queryClient.setQueryData(['social-posts-feed'], ctx.prev);
+    },
+    onSettled: function () {
+      queryClient.invalidateQueries({ queryKey: ['social-posts-feed'] });
+    },
+  });
+
   var handleLikePost = useCallback(
     function (postId) {
-      apiPost(SOCIAL.POSTS.LIKE(postId))
-        .then(function () {
-          queryClient.invalidateQueries({ queryKey: ['social-posts-feed'] });
-        })
-        .catch(function () {});
+      likeMut.mutate(postId);
     },
-    [queryClient],
+    [likeMut],
   );
 
   // Stories bar

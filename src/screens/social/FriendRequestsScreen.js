@@ -13,7 +13,7 @@ var {
   StyleSheet,
 } = require('react-native');
 var { useNavigation } = require('@react-navigation/native');
-var { useQueryClient } = require('@tanstack/react-query');
+var { useQueryClient, useMutation } = require('@tanstack/react-query');
 var { apiPost, apiDelete } = require('../../services/api');
 var { SOCIAL } = require('../../services/endpoints');
 var useInfiniteList = require('../../hooks/useInfiniteList');
@@ -95,57 +95,89 @@ var FriendRequestsScreen = function () {
   var sentRequests = sentInf.items.map(normalizeSent);
   var pendingCount = receivedRequests.filter(function (r) { return !receivedStates[r.id]; }).length;
 
-  var handleAccept = useCallback(function (id) {
-    setReceivedStates(function (prev) {
-      return Object.assign({}, prev, { [id]: 'accepted' });
-    });
-    apiPost(SOCIAL.FRIENDS.ACCEPT(id))
-      .then(function () {
-        queryClient.invalidateQueries({ queryKey: ['friend-requests-received'] });
-        queryClient.invalidateQueries({ queryKey: ['friends-list'] });
-      })
-      .catch(function () {
-        setReceivedStates(function (prev) {
-          var n = Object.assign({}, prev);
-          delete n[id];
-          return n;
-        });
+  var acceptMut = useMutation({
+    mutationFn: function (reqId) { return apiPost(SOCIAL.FRIENDS.ACCEPT(reqId)); },
+    onMutate: function (reqId) {
+      queryClient.cancelQueries({ queryKey: ['friend-requests-received'] });
+      var prev = queryClient.getQueryData(['friend-requests-received']);
+      setReceivedStates(function (p) {
+        return Object.assign({}, p, { [reqId]: 'accepted' });
       });
-  }, [queryClient]);
+      return { prev: prev };
+    },
+    onError: function (err, reqId, ctx) {
+      setReceivedStates(function (p) {
+        var n = Object.assign({}, p);
+        delete n[reqId];
+        return n;
+      });
+      if (ctx && ctx.prev) queryClient.setQueryData(['friend-requests-received'], ctx.prev);
+    },
+    onSettled: function () {
+      queryClient.invalidateQueries({ queryKey: ['friend-requests-received'] });
+      queryClient.invalidateQueries({ queryKey: ['friend-requests-count'] });
+      queryClient.invalidateQueries({ queryKey: ['friends-list'] });
+    },
+  });
+
+  var handleAccept = useCallback(function (id) {
+    acceptMut.mutate(id);
+  }, [acceptMut]);
+
+  var declineMut = useMutation({
+    mutationFn: function (reqId) { return apiPost(SOCIAL.FRIENDS.REJECT(reqId)); },
+    onMutate: function (reqId) {
+      queryClient.cancelQueries({ queryKey: ['friend-requests-received'] });
+      var prev = queryClient.getQueryData(['friend-requests-received']);
+      setReceivedStates(function (p) {
+        return Object.assign({}, p, { [reqId]: 'declined' });
+      });
+      return { prev: prev };
+    },
+    onError: function (err, reqId, ctx) {
+      setReceivedStates(function (p) {
+        var n = Object.assign({}, p);
+        delete n[reqId];
+        return n;
+      });
+      if (ctx && ctx.prev) queryClient.setQueryData(['friend-requests-received'], ctx.prev);
+    },
+    onSettled: function () {
+      queryClient.invalidateQueries({ queryKey: ['friend-requests-received'] });
+      queryClient.invalidateQueries({ queryKey: ['friend-requests-count'] });
+    },
+  });
 
   var handleDecline = useCallback(function (id) {
-    setReceivedStates(function (prev) {
-      return Object.assign({}, prev, { [id]: 'declined' });
-    });
-    apiPost(SOCIAL.FRIENDS.REJECT(id))
-      .then(function () {
-        queryClient.invalidateQueries({ queryKey: ['friend-requests-received'] });
-      })
-      .catch(function () {
-        setReceivedStates(function (prev) {
-          var n = Object.assign({}, prev);
-          delete n[id];
-          return n;
-        });
+    declineMut.mutate(id);
+  }, [declineMut]);
+
+  var cancelSentMut = useMutation({
+    mutationFn: function (reqId) { return apiDelete(SOCIAL.FRIENDS.CANCEL(reqId)); },
+    onMutate: function (reqId) {
+      queryClient.cancelQueries({ queryKey: ['friend-requests-sent'] });
+      var prev = queryClient.getQueryData(['friend-requests-sent']);
+      setCancelledSent(function (p) {
+        return Object.assign({}, p, { [reqId]: true });
       });
-  }, [queryClient]);
+      return { prev: prev };
+    },
+    onError: function (err, reqId, ctx) {
+      setCancelledSent(function (p) {
+        var n = Object.assign({}, p);
+        delete n[reqId];
+        return n;
+      });
+      if (ctx && ctx.prev) queryClient.setQueryData(['friend-requests-sent'], ctx.prev);
+    },
+    onSettled: function () {
+      queryClient.invalidateQueries({ queryKey: ['friend-requests-sent'] });
+    },
+  });
 
   var handleCancelSent = useCallback(function (id) {
-    setCancelledSent(function (prev) {
-      return Object.assign({}, prev, { [id]: true });
-    });
-    apiDelete(SOCIAL.FRIENDS.CANCEL(id))
-      .then(function () {
-        queryClient.invalidateQueries({ queryKey: ['friend-requests-sent'] });
-      })
-      .catch(function () {
-        setCancelledSent(function (prev) {
-          var n = Object.assign({}, prev);
-          delete n[id];
-          return n;
-        });
-      });
-  }, [queryClient]);
+    cancelSentMut.mutate(id);
+  }, [cancelSentMut]);
 
   var renderReceived = useCallback(function (info) {
     var item = info.item;

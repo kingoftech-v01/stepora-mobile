@@ -62,6 +62,10 @@ var StoreScreen = function () {
   var headerRef = React.useRef(null);
   var tooltipCfg = getTooltipConfig('StoreScreen');
 
+  // Offline guard: try to use NetworkContext if available, else assume online
+  var isOnline = true;
+  try { var net = require('../../context/NetworkContext'); isOnline = net.useNetwork().isOnline; } catch(e) {}
+
   var [activeCategory, setActiveCategory] = useState('all');
   var [activeTab, setActiveTab] = useState('shop');
   var [selectedItem, setSelectedItem] = useState(null);
@@ -201,14 +205,26 @@ var StoreScreen = function () {
   // ─── Handlers ───────────────────────────────────────────────
 
   var handleBuy = function (itemId) {
+    if (!isOnline) {
+      Alert.alert('Offline', 'Purchases require an internet connection.');
+      return;
+    }
     purchaseMut.mutate(itemId);
   };
 
   var handleEquip = function (itemId) {
+    if (!isOnline) {
+      Alert.alert('Offline', 'This action requires an internet connection.');
+      return;
+    }
     equipMut.mutate(itemId);
   };
 
   var toggleWishlist = function (itemId) {
+    if (!isOnline) {
+      Alert.alert('Offline', 'This action requires an internet connection.');
+      return;
+    }
     if (wishlistSet[itemId]) {
       wishlistRemoveMut.mutate(itemId);
     } else {
@@ -744,6 +760,10 @@ var StoreScreen = function () {
                 {
                   variant: 'primary',
                   onPress: function () {
+                    if (!isOnline) {
+                      Alert.alert('Offline', 'Refund requests require an internet connection.');
+                      return;
+                    }
                     refundMut.mutate({
                       purchaseId: refundModal && refundModal.id,
                       reason: refundReason.trim(),

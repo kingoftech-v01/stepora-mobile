@@ -157,33 +157,79 @@ var NotificationsScreen = function () {
     mutationFn: function () {
       return apiPost(NOTIFICATIONS.MARK_ALL_READ);
     },
+    onMutate: function () {
+      queryClient.cancelQueries({ queryKey: ['notifications'] });
+      var prev = queryClient.getQueryData(['notifications']);
+      queryClient.setQueryData(['notifications'], function (old) {
+        if (!old || !old.pages) return old;
+        return Object.assign({}, old, {
+          pages: old.pages.map(function (page) {
+            var items = (page && page.results) || (Array.isArray(page) ? page : []);
+            if (!Array.isArray(items)) return page;
+            var updated = items.map(function (n) {
+              return Object.assign({}, n, { isRead: true, read: true, readAt: new Date().toISOString() });
+            });
+            if (page && page.results) {
+              return Object.assign({}, page, { results: updated });
+            }
+            return updated;
+          }),
+        });
+      });
+      return { prev: prev };
+    },
     onSuccess: function () {
-      queryClient.setQueryData(['notifications'], { pages: [], pageParams: [] });
-      queryClient.invalidateQueries({ queryKey: ['notifications'] });
-      queryClient.invalidateQueries({ queryKey: ['unread'] });
       toast.showToast('All notifications marked as read', 'success');
     },
-    onError: function (err) {
+    onError: function (err, vars, ctx) {
+      if (ctx && ctx.prev) queryClient.setQueryData(['notifications'], ctx.prev);
       toast.showToast(
         (err && err.userMessage) || (err && err.message) || 'Failed to mark all read',
         'error',
       );
     },
-  });
-
-  var markReadMut = useMutation({
-    mutationFn: function (id) {
-      return apiPost(NOTIFICATIONS.MARK_READ(id));
-    },
-    onSuccess: function () {
+    onSettled: function () {
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
       queryClient.invalidateQueries({ queryKey: ['unread'] });
     },
-    onError: function (err) {
+  });
+
+  var markReadMut = useMutation({
+    mutationFn: function (nId) {
+      return apiPost(NOTIFICATIONS.MARK_READ(nId));
+    },
+    onMutate: function (nId) {
+      queryClient.cancelQueries({ queryKey: ['notifications'] });
+      var prev = queryClient.getQueryData(['notifications']);
+      queryClient.setQueryData(['notifications'], function (old) {
+        if (!old || !old.pages) return old;
+        return Object.assign({}, old, {
+          pages: old.pages.map(function (page) {
+            var items = (page && page.results) || (Array.isArray(page) ? page : []);
+            if (!Array.isArray(items)) return page;
+            var updated = items.map(function (n) {
+              if (n.id !== nId) return n;
+              return Object.assign({}, n, { isRead: true, read: true, readAt: new Date().toISOString() });
+            });
+            if (page && page.results) {
+              return Object.assign({}, page, { results: updated });
+            }
+            return updated;
+          }),
+        });
+      });
+      return { prev: prev };
+    },
+    onError: function (err, nId, ctx) {
+      if (ctx && ctx.prev) queryClient.setQueryData(['notifications'], ctx.prev);
       toast.showToast(
         (err && err.userMessage) || (err && err.message) || 'Failed to mark notification as read',
         'error',
       );
+    },
+    onSettled: function () {
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      queryClient.invalidateQueries({ queryKey: ['unread'] });
     },
   });
 
