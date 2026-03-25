@@ -1,0 +1,27 @@
+{
+  "_TODO": "Replace TEAM_ID_HERE with your Apple Developer Team ID (10-character alphanumeric string from https://developer.apple.com/account — Membership section). This file must be hosted at https://stepora.app/.well-known/apple-app-site-association",
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appID": "TEAM_ID_HERE.com.stepora.app",
+        "paths": [
+          "/dream/*",
+          "/store/*",
+          "/subscription/*",
+          "/notifications/*",
+          "/user/*",
+          "/verify-email/*",
+          "/reset-password/*",
+          "/friends",
+          "/buddy",
+          "/stats",
+          "/achievements"
+        ]
+      }
+    ]
+  },
+  "webcredentials": {
+    "apps": ["TEAM_ID_HERE.com.stepora.app"]
+  }
+}

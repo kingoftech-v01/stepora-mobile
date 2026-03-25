@@ -1,0 +1,867 @@
+// ─── Stepora Backend URL Constants ─────────────────────────────
+// Single source of truth for ALL backend API endpoints.
+// Every screen imports from here — no hardcoded URLs anywhere else.
+// COPIED FROM WEB APP — keep in sync.
+
+// ─── Auth ────────────────────────────────────────────────────────────
+export var AUTH = {
+  LOGIN: '/api/auth/login/',
+  TFA_CHALLENGE: '/api/auth/2fa-challenge/',
+  LOGOUT: '/api/auth/logout/',
+  REGISTER: '/api/auth/registration/',
+  TOKEN_REFRESH: '/api/auth/token/refresh/',
+  PASSWORD_CHANGE: '/api/auth/password/change/',
+  PASSWORD_RESET: '/api/auth/password/reset/',
+  PASSWORD_RESET_VALIDATE: '/api/auth/password/reset/validate/',
+  PASSWORD_RESET_CONFIRM: '/api/auth/password/reset/confirm/',
+  USER: '/api/auth/user/',
+  GOOGLE: '/api/auth/google/',
+  APPLE: '/api/auth/apple/',
+  APPLE_REDIRECT: '/api/auth/apple/redirect/',
+  VERIFY_EMAIL: '/api/auth/verify-email/',
+  RESEND_EMAIL: '/api/auth/resend-verification/',
+};
+
+// ─── Users ───────────────────────────────────────────────────────────
+export var USERS = {
+  ME: '/api/users/me/',
+  UPDATE_PROFILE: '/api/users/update_profile/',
+  GAMIFICATION: '/api/users/gamification/',
+  AI_USAGE: '/api/users/ai-usage/',
+  UPLOAD_AVATAR: '/api/users/upload_avatar/',
+  STATS: '/api/users/stats/',
+  DELETE_ACCOUNT: '/api/users/delete-account/',
+  EXPORT_DATA: '/api/users/export-data/',
+  CHANGE_EMAIL: '/api/users/change-email/',
+  DASHBOARD: '/api/users/dashboard/',
+  ACHIEVEMENTS: '/api/users/achievements/',
+  NOTIFICATION_PREFS: '/api/users/notification-preferences/',
+  COMPLETE_ONBOARDING: '/api/users/complete-onboarding/',
+  PERSONALITY_QUIZ: '/api/users/personality-quiz/',
+  PROFILE_COMPLETENESS: '/api/users/profile-completeness/',
+  DAILY_QUOTE: '/api/users/daily-quote/',
+  STREAK_DETAILS: '/api/users/streak-details/',
+  STREAKS: '/api/users/streaks/',
+  STREAKS_CALENDAR: '/api/users/streaks/calendar/',
+  STREAK_FREEZE: '/api/users/streaks/freeze/',
+  MORNING_BRIEFING: '/api/users/morning-briefing/',
+  WEEKLY_REPORT: '/api/users/weekly-report/',
+  ENERGY_PROFILE: '/api/users/energy-profile/',
+  MOTIVATION: '/api/users/motivation/',
+  PRODUCTIVITY_INSIGHTS: '/api/users/productivity-insights/',
+  CHECK_IN: '/api/users/check-in/',
+  CELEBRATE: '/api/users/celebrate/',
+  NOTIFICATION_TIMING: '/api/users/notification-timing/',
+  PROFILE: function (id) {
+    return '/api/users/' + id + '/';
+  },
+  TFA: {
+    SETUP: '/api/users/2fa/setup/',
+    VERIFY: '/api/users/2fa/verify/',
+    DISABLE: '/api/users/2fa/disable/',
+    STATUS: '/api/users/2fa/status/',
+    BACKUP_CODES: '/api/users/2fa/backup-codes/',
+  },
+};
+
+// ─── Dreams ──────────────────────────────────────────────────────────
+export var DREAMS = {
+  LIST: '/api/dreams/dreams/',
+  DETAIL: function (id) {
+    return '/api/dreams/dreams/' + id + '/';
+  },
+  ANALYZE: function (id) {
+    return '/api/dreams/dreams/' + id + '/analyze/';
+  },
+  START_CALIBRATION: function (id) {
+    return '/api/dreams/dreams/' + id + '/start_calibration/';
+  },
+  ANSWER_CALIBRATION: function (id) {
+    return '/api/dreams/dreams/' + id + '/answer_calibration/';
+  },
+  SKIP_CALIBRATION: function (id) {
+    return '/api/dreams/dreams/' + id + '/skip_calibration/';
+  },
+  GENERATE_PLAN: function (id) {
+    return '/api/dreams/dreams/' + id + '/generate_plan/';
+  },
+  PLAN_STATUS: function (id) {
+    return '/api/dreams/dreams/' + id + '/plan_status/';
+  },
+  GENERATE_TWO_MIN: function (id) {
+    return '/api/dreams/dreams/' + id + '/generate_two_minute_start/';
+  },
+  GENERATE_VISION: function (id) {
+    return '/api/dreams/dreams/' + id + '/generate_vision/';
+  },
+  VISION_BOARD: function (id) {
+    return '/api/dreams/dreams/' + id + '/vision-board/';
+  },
+  VISION_BOARD_ADD: function (id) {
+    return '/api/dreams/dreams/' + id + '/vision-board/add/';
+  },
+  VISION_BOARD_DELETE: function (id, imgId) {
+    return '/api/dreams/dreams/' + id + '/vision-board/' + imgId + '/';
+  },
+  PROGRESS_HISTORY: function (id) {
+    return '/api/dreams/dreams/' + id + '/progress-history/';
+  },
+  ANALYTICS: function (id, range) {
+    return '/api/dreams/dreams/' + id + '/analytics/' + (range ? '?range=' + range : '');
+  },
+  COMPLETE: function (id) {
+    return '/api/dreams/dreams/' + id + '/complete/';
+  },
+  DUPLICATE: function (id) {
+    return '/api/dreams/dreams/' + id + '/duplicate/';
+  },
+  SHARE: function (id) {
+    return '/api/dreams/dreams/' + id + '/share/';
+  },
+  UNSHARE: function (id, userId) {
+    return '/api/dreams/dreams/' + id + '/unshare/' + userId + '/';
+  },
+  TAGS: function (id) {
+    return '/api/dreams/dreams/' + id + '/tags/';
+  },
+  TAG_DELETE: function (id, tagName) {
+    return '/api/dreams/dreams/' + id + '/tags/' + encodeURIComponent(tagName) + '/';
+  },
+  COLLABORATORS: function (id) {
+    return '/api/dreams/dreams/' + id + '/collaborators/';
+  },
+  COLLABORATORS_LIST: function (id) {
+    return '/api/dreams/dreams/' + id + '/collaborators/list/';
+  },
+  COLLABORATOR_DELETE: function (id, userId) {
+    return '/api/dreams/dreams/' + id + '/collaborators/' + userId + '/';
+  },
+  AUTO_CATEGORIZE: '/api/dreams/dreams/auto-categorize/',
+  SMART_ANALYSIS: '/api/dreams/dreams/smart-analysis/',
+  SHARED_WITH_ME: '/api/dreams/dreams/shared-with-me/',
+  EXPLORE: '/api/dreams/dreams/explore/',
+  ALL_TAGS: '/api/dreams/dreams/tags/',
+  LIKE: function (id) {
+    return '/api/dreams/dreams/' + id + '/like/';
+  },
+  EXPORT_PDF: function (id) {
+    return '/api/dreams/dreams/' + id + '/export-pdf/';
+  },
+  PREDICT_OBSTACLES: function (id) {
+    return '/api/dreams/dreams/' + id + '/predict-obstacles/';
+  },
+  CONVERSATION_STARTERS: function (id) {
+    return '/api/dreams/dreams/' + id + '/conversation-starters/';
+  },
+  SIMILAR: function (id) {
+    return '/api/dreams/dreams/' + id + '/similar/';
+  },
+  GOALS: {
+    LIST: '/api/dreams/goals/',
+    DETAIL: function (id) {
+      return '/api/dreams/goals/' + id + '/';
+    },
+    COMPLETE: function (id) {
+      return '/api/dreams/goals/' + id + '/complete/';
+    },
+    REFINE: '/api/dreams/goals/refine/',
+  },
+  TASKS: {
+    LIST: '/api/dreams/tasks/',
+    DETAIL: function (id) {
+      return '/api/dreams/tasks/' + id + '/';
+    },
+    COMPLETE: function (id) {
+      return '/api/dreams/tasks/' + id + '/complete/';
+    },
+    SKIP: function (id) {
+      return '/api/dreams/tasks/' + id + '/skip/';
+    },
+    CHAIN: function (id) {
+      return '/api/dreams/tasks/' + id + '/chain/';
+    },
+    QUICK_CREATE: '/api/dreams/tasks/quick_create/',
+    REORDER: '/api/dreams/tasks/reorder/',
+    DAILY_PRIORITIES: '/api/dreams/tasks/daily-priorities/',
+    ESTIMATE_DURATIONS: '/api/dreams/tasks/estimate-durations/',
+    PARSE_NATURAL: '/api/dreams/tasks/parse-natural/',
+    CREATE_FROM_PARSED: '/api/dreams/tasks/create-from-parsed/',
+    CALIBRATE_DIFFICULTY: '/api/dreams/tasks/calibrate-difficulty/',
+    APPLY_CALIBRATION: '/api/dreams/tasks/apply-calibration/',
+  },
+  OBSTACLES: {
+    LIST: '/api/dreams/obstacles/',
+    DETAIL: function (id) {
+      return '/api/dreams/obstacles/' + id + '/';
+    },
+    RESOLVE: function (id) {
+      return '/api/dreams/obstacles/' + id + '/resolve/';
+    },
+  },
+  TEMPLATES: {
+    LIST: '/api/dreams/dreams/templates/',
+    DETAIL: function (id) {
+      return '/api/dreams/dreams/templates/' + id + '/';
+    },
+    USE: function (id) {
+      return '/api/dreams/dreams/templates/' + id + '/use/';
+    },
+    FEATURED: '/api/dreams/dreams/templates/featured/',
+  },
+  MILESTONES: {
+    LIST: '/api/dreams/milestones/',
+    DETAIL: function (id) {
+      return '/api/dreams/milestones/' + id + '/';
+    },
+    COMPLETE: function (id) {
+      return '/api/dreams/milestones/' + id + '/complete/';
+    },
+  },
+  JOURNAL: {
+    LIST: '/api/dreams/journal/',
+    DETAIL: function (id) {
+      return '/api/dreams/journal/' + id + '/';
+    },
+  },
+  FOCUS: {
+    START: '/api/dreams/focus/start/',
+    COMPLETE: '/api/dreams/focus/complete/',
+    HISTORY: '/api/dreams/focus/history/',
+    STATS: '/api/dreams/focus/stats/',
+  },
+  CHECKINS: {
+    LIST: '/api/dreams/checkins/',
+    DETAIL: function (id) {
+      return '/api/dreams/checkins/' + id + '/';
+    },
+    RESPOND: function (id) {
+      return '/api/dreams/checkins/' + id + '/respond/';
+    },
+    STATUS: function (id) {
+      return '/api/dreams/checkins/' + id + '/status/';
+    },
+  },
+  TRIGGER_CHECKIN: function (id) {
+    return '/api/dreams/dreams/' + id + '/trigger-checkin/';
+  },
+  LIST_CHECKINS: function (id) {
+    return '/api/dreams/dreams/' + id + '/checkins/';
+  },
+  PROGRESS_PHOTOS: {
+    LIST: function (dreamId) {
+      return '/api/dreams/dreams/' + dreamId + '/progress-photos/';
+    },
+    UPLOAD: function (dreamId) {
+      return '/api/dreams/dreams/' + dreamId + '/progress-photos/upload/';
+    },
+    ANALYZE: function (dreamId, photoId) {
+      return '/api/dreams/dreams/' + dreamId + '/progress-photos/' + photoId + '/analyze/';
+    },
+  },
+};
+
+// ─── Conversations ───────────────────────────────────────────────────
+export var CONVERSATIONS = {
+  LIST: '/api/conversations/',
+  DETAIL: function (id) {
+    return '/api/conversations/' + id + '/';
+  },
+  SEND_MESSAGE: function (id) {
+    return '/api/conversations/' + id + '/send_message/';
+  },
+  SEND_VOICE: function (id) {
+    return '/api/conversations/' + id + '/send-voice/';
+  },
+  SUMMARIZE_VOICE: function (id, msgId) {
+    return '/api/conversations/' + id + '/summarize-voice/' + msgId + '/';
+  },
+  SEND_IMAGE: function (id) {
+    return '/api/conversations/' + id + '/send-image/';
+  },
+  MESSAGES: function (id) {
+    return '/api/conversations/' + id + '/messages/';
+  },
+  PIN: function (id) {
+    return '/api/conversations/' + id + '/pin/';
+  },
+  PIN_MESSAGE: function (id, msgId) {
+    return '/api/conversations/' + id + '/pin-message/' + msgId + '/';
+  },
+  LIKE_MESSAGE: function (id, msgId) {
+    return '/api/conversations/' + id + '/like-message/' + msgId + '/';
+  },
+  REACT_MESSAGE: function (id, msgId) {
+    return '/api/conversations/' + id + '/react-message/' + msgId + '/';
+  },
+  SEARCH: function (id) {
+    return '/api/conversations/' + id + '/search/';
+  },
+  SEARCH_MESSAGES: function (id, q) {
+    return '/api/conversations/' + id + '/search/?q=' + encodeURIComponent(q);
+  },
+  EXPORT: function (id) {
+    return '/api/conversations/' + id + '/export/';
+  },
+  ARCHIVE: function (id) {
+    return '/api/conversations/' + id + '/archive/';
+  },
+  MARK_READ: function (id) {
+    return '/api/conversations/' + id + '/mark-read/';
+  },
+  BRANCHES: {
+    CREATE: function (id) {
+      return '/api/conversations/' + id + '/branch/';
+    },
+    LIST: function (id) {
+      return '/api/conversations/' + id + '/branches/';
+    },
+    SEND: function (id, branchId) {
+      return '/api/conversations/' + id + '/branch/' + branchId + '/send/';
+    },
+    MESSAGES: function (id, branchId) {
+      return '/api/conversations/' + id + '/branch/' + branchId + '/messages/';
+    },
+  },
+  TEMPLATES: '/api/conversations/conversation-templates/',
+  CALLS: {
+    LIST: '/api/conversations/calls/',
+    INITIATE: '/api/conversations/calls/initiate/',
+    ACCEPT: function (id) {
+      return '/api/conversations/calls/' + id + '/accept/';
+    },
+    REJECT: function (id) {
+      return '/api/conversations/calls/' + id + '/reject/';
+    },
+    END: function (id) {
+      return '/api/conversations/calls/' + id + '/end/';
+    },
+    CANCEL: function (id) {
+      return '/api/conversations/calls/' + id + '/cancel/';
+    },
+    INCOMING: '/api/conversations/calls/incoming/',
+    HISTORY: '/api/conversations/calls/history/',
+    STATUS: function (id) {
+      return '/api/conversations/calls/' + id + '/status/';
+    },
+  },
+  MEMORIES: {
+    LIST: '/api/conversations/memories/',
+    DELETE: function (id) {
+      return '/api/conversations/memories/' + id + '/';
+    },
+    CLEAR: '/api/conversations/memories/clear/',
+  },
+  MESSAGES_VIEWSET: '/api/conversations/messages/',
+  AGORA: {
+    CONFIG: '/api/conversations/agora/config/',
+    RTM_TOKEN: '/api/conversations/agora/rtm-token/',
+    RTC_TOKEN: '/api/conversations/agora/rtc-token/',
+  },
+};
+
+// ─── Calendar ────────────────────────────────────────────────────────
+export var CALENDAR = {
+  EVENTS: '/api/calendar/events/',
+  EVENT_DETAIL: function (id) {
+    return '/api/calendar/events/' + id + '/';
+  },
+  TIMEBLOCKS: '/api/calendar/timeblocks/',
+  TIMEBLOCK_DETAIL: function (id) {
+    return '/api/calendar/timeblocks/' + id + '/';
+  },
+  VIEW: '/api/calendar/view/',
+  TODAY: '/api/calendar/today/',
+  SUGGEST_TIME_SLOTS: '/api/calendar/suggest-time-slots/',
+  SMART_SCHEDULE: '/api/calendar/smart-schedule/',
+  ACCEPT_SCHEDULE: '/api/calendar/accept-schedule/',
+  RESCHEDULE: '/api/calendar/reschedule/',
+  CHECK_CONFLICTS: '/api/calendar/events/check-conflicts/',
+  HEATMAP: '/api/calendar/heatmap/',
+  SCHEDULE_SCORE: '/api/calendar/schedule-score/',
+  SEARCH: '/api/calendar/events/search/',
+  CATEGORIES: '/api/calendar/events/categories/',
+  SKIP_OCCURRENCE: function (id) {
+    return '/api/calendar/events/' + id + '/skip-occurrence/';
+  },
+  MODIFY_OCCURRENCE: function (id) {
+    return '/api/calendar/events/' + id + '/modify-occurrence/';
+  },
+  EXCEPTIONS: function (id) {
+    return '/api/calendar/events/' + id + '/exceptions/';
+  },
+  TEMPLATES: '/api/calendar/timeblock-templates/',
+  TEMPLATE_DETAIL: function (id) {
+    return '/api/calendar/timeblock-templates/' + id + '/';
+  },
+  TEMPLATE_APPLY: function (id) {
+    return '/api/calendar/timeblock-templates/' + id + '/apply/';
+  },
+  TEMPLATE_SAVE_CURRENT: '/api/calendar/timeblock-templates/save-current/',
+  TEMPLATE_PRESETS: '/api/calendar/timeblock-templates/presets/',
+  OVERDUE: '/api/calendar/overdue/',
+  RESCUE: '/api/calendar/rescue/',
+  BATCH_SCHEDULE: '/api/calendar/batch-schedule/',
+  DAILY_SUMMARY: '/api/calendar/daily-summary/',
+  FOCUS_MODE_ACTIVE: '/api/calendar/focus-mode-active/',
+  FOCUS_BLOCK_EVENTS: '/api/calendar/focus-block-events/',
+  ICAL_IMPORT: '/api/calendar/ical-import/',
+  PREFERENCES: '/api/calendar/preferences/',
+  SNOOZE: function (id) {
+    return '/api/calendar/events/' + id + '/snooze/';
+  },
+  DISMISS: function (id) {
+    return '/api/calendar/events/' + id + '/dismiss/';
+  },
+  UPCOMING_ALERTS: '/api/calendar/upcoming-alerts/',
+  TIMEZONE: '/api/calendar/timezone/',
+  EXPORT: '/api/calendar/export/',
+  GOOGLE: {
+    STATUS: '/api/calendar/google/status/',
+    AUTH: '/api/calendar/google/auth/',
+    CALLBACK: '/api/calendar/google/callback/',
+    NATIVE_CALLBACK: '/api/calendar/google/native-callback/',
+    SYNC: '/api/calendar/google/sync/',
+    DISCONNECT: '/api/calendar/google/disconnect/',
+    SYNC_SETTINGS: '/api/calendar/google/sync-settings/',
+  },
+  SHARING: {
+    SHARE: '/api/calendar/share/',
+    SHARED_WITH_ME: '/api/calendar/shared-with-me/',
+    MY_SHARES: '/api/calendar/my-shares/',
+    REVOKE: function (id) {
+      return '/api/calendar/share/' + id + '/';
+    },
+    SHARE_LINK: '/api/calendar/share-link/',
+    SHARED: function (token) {
+      return '/api/calendar/shared/' + token + '/';
+    },
+    SUGGEST: function (token) {
+      return '/api/calendar/shared/' + token + '/suggest/';
+    },
+  },
+  HABITS: {
+    LIST: '/api/calendar/habits/',
+    DETAIL: function (id) {
+      return '/api/calendar/habits/' + id + '/';
+    },
+    COMPLETE: function (id) {
+      return '/api/calendar/habits/' + id + '/complete/';
+    },
+    UNCOMPLETE: function (id) {
+      return '/api/calendar/habits/' + id + '/uncomplete/';
+    },
+    STATS: function (id) {
+      return '/api/calendar/habits/' + id + '/stats/';
+    },
+    CALENDAR_DATA: '/api/calendar/habits/calendar-data/',
+  },
+};
+
+// ─── Notifications ───────────────────────────────────────────────────
+export var NOTIFICATIONS = {
+  LIST: '/api/notifications/',
+  DETAIL: function (id) {
+    return '/api/notifications/' + id + '/';
+  },
+  MARK_READ: function (id) {
+    return '/api/notifications/' + id + '/mark_read/';
+  },
+  MARK_ALL_READ: '/api/notifications/mark_all_read/',
+  UNREAD_COUNT: '/api/notifications/unread_count/',
+  OPENED: function (id) {
+    return '/api/notifications/' + id + '/opened/';
+  },
+  GROUPED: '/api/notifications/grouped/',
+  TEMPLATES: '/api/notifications/templates/',
+  PUSH_SUBSCRIPTIONS: '/api/notifications/push-subscriptions/',
+  DEVICES: '/api/notifications/devices/',
+};
+
+// ─── Subscriptions ───────────────────────────────────────────────────
+export var SUBSCRIPTIONS = {
+  PLANS: '/api/subscriptions/plans/',
+  PLAN_DETAIL: function (slug) {
+    return '/api/subscriptions/plans/' + slug + '/';
+  },
+  CURRENT: '/api/subscriptions/subscription/current/',
+  // CHECKOUT and PORTAL removed — no in-app payments (App Store compliance)
+  CANCEL: '/api/subscriptions/subscription/cancel/',
+  REACTIVATE: '/api/subscriptions/subscription/reactivate/',
+  SYNC: '/api/subscriptions/subscription/sync/',
+  INVOICES: '/api/subscriptions/subscription/invoices/',
+  CHANGE_PLAN: '/api/subscriptions/subscription/change-plan/',
+  CANCEL_PENDING_CHANGE: '/api/subscriptions/subscription/cancel-pending-change/',
+  // APPLY_COUPON removed — no in-app coupon input (App Store compliance)
+  PROMOTIONS_ACTIVE: '/api/subscriptions/promotions/active/',
+  REFERRAL: '/api/subscriptions/referral/',
+};
+
+// ─── Store ───────────────────────────────────────────────────────────
+export var STORE = {
+  CATEGORIES: '/api/store/categories/',
+  CATEGORY_DETAIL: function (slug) {
+    return '/api/store/categories/' + slug + '/';
+  },
+  ITEMS: '/api/store/items/',
+  ITEM_DETAIL: function (slug) {
+    return '/api/store/items/' + slug + '/';
+  },
+  ITEM_PREVIEW: function (slug) {
+    return '/api/store/items/' + slug + '/preview/';
+  },
+  ITEMS_FEATURED: '/api/store/items/featured/',
+  INVENTORY: '/api/store/inventory/',
+  EQUIP: function (id) {
+    return '/api/store/inventory/' + id + '/equip/';
+  },
+  INVENTORY_HISTORY: '/api/store/inventory/history/',
+  WISHLIST: '/api/store/wishlist/',
+  PURCHASE: '/api/store/purchase/',
+  PURCHASE_CONFIRM: '/api/store/purchase/confirm/',
+  PURCHASE_XP: '/api/store/purchase/xp/',
+  GIFTS: '/api/store/gifts/',
+  GIFT_SEND: '/api/store/gifts/send/',
+  GIFT_CLAIM: function (id) {
+    return '/api/store/gifts/' + id + '/claim/';
+  },
+  REFUNDS: '/api/store/refunds/',
+};
+
+// ─── Leagues ─────────────────────────────────────────────────────────
+export var LEAGUES = {
+  LIST: '/api/leagues/leagues/',
+  DETAIL: function (id) {
+    return '/api/leagues/leagues/' + id + '/';
+  },
+  LEADERBOARD: {
+    GLOBAL: '/api/leagues/leaderboard/global/',
+    LEAGUE: '/api/leagues/leaderboard/league/',
+    FRIENDS: '/api/leagues/leaderboard/friends/',
+    ME: '/api/leagues/leaderboard/me/',
+    NEARBY: '/api/leagues/leaderboard/nearby/',
+    GROUP: '/api/leagues/leaderboard/group/',
+  },
+  GROUPS: {
+    LIST: '/api/leagues/groups/',
+    DETAIL: function (id) {
+      return '/api/leagues/groups/' + id + '/';
+    },
+    MINE: '/api/leagues/groups/mine/',
+    LEADERBOARD: function (id) {
+      return '/api/leagues/groups/' + id + '/leaderboard/';
+    },
+  },
+  SEASONS: {
+    LIST: '/api/leagues/seasons/',
+    DETAIL: function (id) {
+      return '/api/leagues/seasons/' + id + '/';
+    },
+    CURRENT: '/api/leagues/seasons/current/',
+    PAST: '/api/leagues/seasons/past/',
+    MY_REWARDS: '/api/leagues/seasons/my-rewards/',
+    CLAIM_REWARD: function (id) {
+      return '/api/leagues/seasons/' + id + '/claim-reward/';
+    },
+  },
+  LEAGUE_SEASONS: {
+    LIST: '/api/leagues/league-seasons/',
+    DETAIL: function (id) {
+      return '/api/leagues/league-seasons/' + id + '/';
+    },
+    CURRENT: '/api/leagues/league-seasons/current/',
+    JOIN: '/api/leagues/league-seasons/current/join/',
+    LEADERBOARD: function (id) {
+      return '/api/leagues/league-seasons/' + id + '/leaderboard/';
+    },
+    CLAIM_REWARDS: function (id) {
+      return '/api/leagues/league-seasons/' + id + '/claim-rewards/';
+    },
+  },
+};
+
+// ─── Circles ─────────────────────────────────────────────────────────
+export var CIRCLES = {
+  LIST: '/api/circles/circles/',
+  DETAIL: function (id) {
+    return '/api/circles/circles/' + id + '/';
+  },
+  JOIN: function (id) {
+    return '/api/circles/circles/' + id + '/join/';
+  },
+  LEAVE: function (id) {
+    return '/api/circles/circles/' + id + '/leave/';
+  },
+  FEED: function (id) {
+    return '/api/circles/circles/' + id + '/feed/';
+  },
+  POSTS: function (id) {
+    return '/api/circles/circles/' + id + '/posts/';
+  },
+  POST_EDIT: function (id, postId) {
+    return '/api/circles/circles/' + id + '/posts/' + postId + '/edit/';
+  },
+  POST_DELETE: function (id, postId) {
+    return '/api/circles/circles/' + id + '/posts/' + postId + '/delete/';
+  },
+  POST_REACT: function (id, postId) {
+    return '/api/circles/circles/' + id + '/posts/' + postId + '/react/';
+  },
+  POST_UNREACT: function (id, postId) {
+    return '/api/circles/circles/' + id + '/posts/' + postId + '/unreact/';
+  },
+  POST_VOTE: function (id, postId) {
+    return '/api/circles/circles/' + id + '/posts/' + postId + '/vote/';
+  },
+  CHALLENGES: function (id) {
+    return '/api/circles/circles/' + id + '/challenges/';
+  },
+  CHALLENGE_CREATE: function (id) {
+    return '/api/circles/circles/' + id + '/challenges/create/';
+  },
+  CHALLENGE_PROGRESS: function (id, chId) {
+    return '/api/circles/circles/' + id + '/challenges/' + chId + '/progress/';
+  },
+  CHALLENGE_LEADERBOARD: function (id, chId) {
+    return '/api/circles/circles/' + id + '/challenges/' + chId + '/leaderboard/';
+  },
+  CHALLENGE_JOIN: function (chId) {
+    return '/api/circles/circles/challenges/' + chId + '/join/';
+  },
+  MEMBER_PROMOTE: function (id, memberId) {
+    return '/api/circles/circles/' + id + '/members/' + memberId + '/promote/';
+  },
+  MEMBER_DEMOTE: function (id, memberId) {
+    return '/api/circles/circles/' + id + '/members/' + memberId + '/demote/';
+  },
+  MEMBER_REMOVE: function (id, memberId) {
+    return '/api/circles/circles/' + id + '/members/' + memberId + '/remove/';
+  },
+  INVITE: function (id) {
+    return '/api/circles/circles/' + id + '/invite/';
+  },
+  INVITE_LINK: function (id) {
+    return '/api/circles/circles/' + id + '/invite-link/';
+  },
+  INVITATIONS: function (id) {
+    return '/api/circles/circles/' + id + '/invitations/';
+  },
+  JOIN_BY_CODE: function (code) {
+    return '/api/circles/circles/join/' + code + '/';
+  },
+  MY_INVITATIONS: '/api/circles/circles/my-invitations/',
+  CHAT: function (id) {
+    return '/api/circles/circles/' + id + '/chat/';
+  },
+  CHAT_SEND: function (id) {
+    return '/api/circles/circles/' + id + '/chat/send/';
+  },
+  CALL: {
+    START: function (id) {
+      return '/api/circles/circles/' + id + '/call/start/';
+    },
+    JOIN: function (id) {
+      return '/api/circles/circles/' + id + '/call/join/';
+    },
+    LEAVE: function (id) {
+      return '/api/circles/circles/' + id + '/call/leave/';
+    },
+    END: function (id) {
+      return '/api/circles/circles/' + id + '/call/end/';
+    },
+    ACTIVE: function (id) {
+      return '/api/circles/circles/' + id + '/call/active/';
+    },
+  },
+};
+
+// ─── Social ──────────────────────────────────────────────────────────
+export var SOCIAL = {
+  FRIENDS: {
+    LIST: '/api/social/friends/',
+    REQUEST: '/api/social/friends/request/',
+    PENDING: '/api/social/friends/requests/pending/',
+    SENT: '/api/social/friends/requests/sent/',
+    ACCEPT: function (id) {
+      return '/api/social/friends/accept/' + id + '/';
+    },
+    REJECT: function (id) {
+      return '/api/social/friends/reject/' + id + '/';
+    },
+    CANCEL: function (id) {
+      return '/api/social/friends/cancel/' + id + '/';
+    },
+    REMOVE: function (userId) {
+      return '/api/social/friends/remove/' + userId + '/';
+    },
+    MUTUAL: function (userId) {
+      return '/api/social/friends/mutual/' + userId + '/';
+    },
+    ONLINE: '/api/social/friends/online/',
+  },
+  FOLLOW: '/api/social/follow/',
+  UNFOLLOW: function (userId) {
+    return '/api/social/unfollow/' + userId + '/';
+  },
+  BLOCK: '/api/social/block/',
+  UNBLOCK: function (userId) {
+    return '/api/social/unblock/' + userId + '/';
+  },
+  BLOCKED: '/api/social/blocked/',
+  REPORT: '/api/social/report/',
+  COUNTS: function (userId) {
+    return '/api/social/counts/' + userId + '/';
+  },
+  USER_SEARCH: '/api/social/users/search',
+  FOLLOW_SUGGESTIONS: '/api/social/follow-suggestions/',
+  FRIEND_SUGGESTIONS: '/api/social/friend-suggestions/',
+  FEED: {
+    FRIENDS: '/api/social/feed/friends',
+    LIKE: function (id) {
+      return '/api/social/feed/' + id + '/like/';
+    },
+    COMMENT: function (id) {
+      return '/api/social/feed/' + id + '/comment/';
+    },
+  },
+  RECENT_SEARCHES: {
+    LIST: '/api/social/recent-searches/list/',
+    ADD: '/api/social/recent-searches/add/',
+    CLEAR: '/api/social/recent-searches/clear/',
+    REMOVE: function (id) {
+      return '/api/social/recent-searches/' + id + '/remove/';
+    },
+  },
+  POSTS: {
+    LIST: '/api/social/posts/',
+    DETAIL: function (id) {
+      return '/api/social/posts/' + id + '/';
+    },
+    FEED: '/api/social/posts/feed/',
+    LIKE: function (id) {
+      return '/api/social/posts/' + id + '/like/';
+    },
+    COMMENT: function (id) {
+      return '/api/social/posts/' + id + '/comment/';
+    },
+    COMMENTS: function (id) {
+      return '/api/social/posts/' + id + '/comments/';
+    },
+    REACT: function (id) {
+      return '/api/social/posts/' + id + '/react/';
+    },
+    ENCOURAGE: function (id) {
+      return '/api/social/posts/' + id + '/encourage/';
+    },
+    SHARE: function (id) {
+      return '/api/social/posts/' + id + '/share/';
+    },
+    SAVE: function (id) {
+      return '/api/social/posts/' + id + '/save/';
+    },
+    SAVED: '/api/social/posts/saved/',
+    USER: function (userId) {
+      return '/api/social/posts/user/' + userId + '/';
+    },
+  },
+  EVENTS: {
+    LIST: '/api/social/events/',
+    DETAIL: function (id) {
+      return '/api/social/events/' + id + '/';
+    },
+    FEED: '/api/social/events/feed/',
+    REGISTER: function (id) {
+      return '/api/social/events/' + id + '/register/';
+    },
+    UNREGISTER: function (id) {
+      return '/api/social/events/' + id + '/unregister/';
+    },
+    PARTICIPANTS: function (id) {
+      return '/api/social/events/' + id + '/participants/';
+    },
+  },
+  STORIES: {
+    LIST: '/api/social/stories/',
+    FEED: '/api/social/stories/feed/',
+    MINE: '/api/social/stories/my_stories/',
+    VIEW: function (id) {
+      return '/api/social/stories/' + id + '/view/';
+    },
+    VIEWERS: function (id) {
+      return '/api/social/stories/' + id + '/viewers/';
+    },
+    DELETE: function (id) {
+      return '/api/social/stories/' + id + '/';
+    },
+  },
+};
+
+// ─── Buddies ─────────────────────────────────────────────────────────
+export var BUDDIES = {
+  CURRENT: '/api/buddies/current/',
+  CHAT: '/api/buddies/chat/',
+  SEND_MESSAGE: '/api/buddies/send-message/',
+  SEND_VOICE: '/api/buddies/send-voice/',
+  PROGRESS: function (id) {
+    return '/api/buddies/' + id + '/progress/';
+  },
+  FIND_MATCH: '/api/buddies/find-match/',
+  AI_MATCHES: '/api/buddies/ai-matches/',
+  PAIR: '/api/buddies/pair/',
+  ACCEPT: function (id) {
+    return '/api/buddies/' + id + '/accept/';
+  },
+  REJECT: function (id) {
+    return '/api/buddies/' + id + '/reject/';
+  },
+  ENCOURAGE: function (id) {
+    return '/api/buddies/' + id + '/encourage/';
+  },
+  DELETE: function (id) {
+    return '/api/buddies/' + id + '/';
+  },
+  HISTORY: '/api/buddies/history/',
+  CONTRACTS: {
+    LIST: '/api/buddies/contracts/',
+    CREATE: '/api/buddies/contracts/',
+    ACCEPT: function (id) {
+      return '/api/buddies/contracts/' + id + '/accept/';
+    },
+    CHECK_IN: function (id) {
+      return '/api/buddies/contracts/' + id + '/check-in/';
+    },
+    PROGRESS: function (id) {
+      return '/api/buddies/contracts/' + id + '/progress/';
+    },
+  },
+};
+
+// ─── Search ──────────────────────────────────────────────────────────
+export var SEARCH = {
+  GLOBAL: '/api/search/',
+};
+
+// ─── Ads ────────────────────────────────────────────────────────────
+export var ADS = {
+  CONFIG: '/api/ads/config/',
+};
+
+// ─── App Updates ─────────────────────────────────────────────────────
+export var APP_UPDATES = {
+  CHECK: '/api/updates/check/',
+};
+
+// ─── WebSocket paths ─────────────────────────────────────────────────
+export var WS = {
+  AI_CHAT: function (conversationId) {
+    return '/ws/ai-chat/' + conversationId + '/';
+  },
+  BUDDY_CHAT: function (pairingId) {
+    return '/ws/buddy-chat/' + pairingId + '/';
+  },
+  CIRCLE_CHAT: function (circleId) {
+    return '/ws/circle-chat/' + circleId + '/';
+  },
+  NOTIFICATIONS: '/ws/notifications/',
+  SOCIAL_FEED: '/ws/social-feed/',
+  LEAGUE: '/ws/league/',
+};

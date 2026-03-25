@@ -1,0 +1,11 @@
+// Stepora Mobile — Android settings
+rootProject.name = 'Stepora'
+
+// React Native CLI autolinking
+apply from: file("../node_modules/@react-native-community/cli-platform-android/native_modules.gradle");
+applyNativeModulesSettingsGradle(settings)
+
+include ':app'
+
+// React Native new architecture setup
+includeBuild('../node_modules/@react-native/gradle-plugin')

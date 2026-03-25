@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Stepora Mobile — iOS Privacy Manifest (PrivacyInfo.xcprivacy)
+  Required since iOS 17 for App Store submission.
+
+  Declares:
+    - Tracking usage (AdMob requires IDFA)
+    - Tracking domains (Google ad serving)
+    - Collected data types (advertising identifiers)
+    - Accessed API types (UserDefaults for ad preference storage)
+-->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- App uses tracking (AdMob / IDFA) -->
+    <key>NSPrivacyTracking</key>
+    <true/>
+
+    <!-- Domains used for tracking -->
+    <key>NSPrivacyTrackingDomains</key>
+    <array>
+        <string>googleads.g.doubleclick.net</string>
+        <string>pagead2.googlesyndication.com</string>
+    </array>
+
+    <!-- Collected data types -->
+    <key>NSPrivacyCollectedDataTypes</key>
+    <array>
+        <!-- Advertising identifier (IDFA) -->
+        <dict>
+            <key>NSPrivacyCollectedDataType</key>
+            <string>NSPrivacyCollectedDataTypeDeviceID</string>
+            <key>NSPrivacyCollectedDataTypeLinked</key>
+            <false/>
+            <key>NSPrivacyCollectedDataTypeTracking</key>
+            <true/>
+            <key>NSPrivacyCollectedDataTypePurposes</key>
+            <array>
+                <string>NSPrivacyCollectedDataTypePurposeThirdPartyAdvertising</string>
+            </array>
+        </dict>
+        <!-- Advertising data (ad interactions, impressions) -->
+        <dict>
+            <key>NSPrivacyCollectedDataType</key>
+            <string>NSPrivacyCollectedDataTypeAdvertisingData</string>
+            <key>NSPrivacyCollectedDataTypeLinked</key>
+            <false/>
+            <key>NSPrivacyCollectedDataTypeTracking</key>
+            <true/>
+            <key>NSPrivacyCollectedDataTypePurposes</key>
+            <array>
+                <string>NSPrivacyCollectedDataTypePurposeThirdPartyAdvertising</string>
+            </array>
+        </dict>
+    </array>
+
+    <!-- Accessed API types -->
+    <key>NSPrivacyAccessedAPITypes</key>
+    <array>
+        <!-- UserDefaults — used by AdMob SDK for ad preferences and consent storage -->
+        <dict>
+            <key>NSPrivacyAccessedAPIType</key>
+            <string>NSPrivacyAccessedAPICategoryUserDefaults</string>
+            <key>NSPrivacyAccessedAPITypeReasons</key>
+            <array>
+                <string>CA92.1</string>
+            </array>
+        </dict>
+    </array>
+</dict>
+</plist>

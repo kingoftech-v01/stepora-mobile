@@ -1,0 +1,42 @@
+// Top-level build file — Stepora Mobile (React Native 0.76)
+buildscript {
+    ext {
+        buildToolsVersion = "35.0.0"
+        minSdkVersion = 24
+        compileSdkVersion = 35
+        targetSdkVersion = 35
+        ndkVersion = "27.1.12297006"
+        kotlinVersion = "2.0.21"
+    }
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath("com.android.tools.build:gradle:8.7.3")
+        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:${kotlinVersion}")
+        classpath("com.google.gms:google-services:4.4.2")
+    }
+}
+
+allprojects {
+    repositories {
+        maven {
+            // All of React Native (JS, Obj-C sources, Android binaries) is installed
+            // from npm
+            url(new File(["node", "--print", "require.resolve('react-native/package.json')"].execute(null, rootDir).text.trim(), "../android"))
+        }
+        maven {
+            // Android JSC is installed from npm
+            url(new File(["node", "--print", "require.resolve('jsc-android/package.json')"].execute(null, rootDir).text.trim(), "../dist"))
+        }
+        mavenCentral()
+        google()
+        maven { url 'https://www.jitpack.io' }
+    }
+}
+
+// Force clean build directory
+tasks.register("clean", Delete) {
+    delete rootProject.layout.buildDirectory
+}

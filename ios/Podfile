@@ -1,0 +1,58 @@
+# Stepora Mobile — iOS Podfile (React Native 0.76)
+# Run `cd ios && pod install` after any dependency change.
+
+require_relative '../node_modules/react-native/scripts/react_native_pods'
+require_relative '../node_modules/@react-native-community/cli-platform-ios/native_modules'
+
+platform :ios, '15.0'
+
+# Disable Flipper in CI or if not needed
+flipper_config = ENV['NO_FLIPPER'] == '1' ? FlipperConfiguration.disabled : FlipperConfiguration.enabled
+
+prepare_react_native_project!
+
+target 'Stepora' do
+  config = use_native_modules!
+
+  use_react_native!(
+    :path => config[:reactNativePath],
+    :hermes_enabled => true,
+    :fabric_enabled => false,
+    :flipper_configuration => flipper_config,
+    # An absolute path to your application root.
+    :app_path => "#{Pod::Config.instance.installation_root}/.."
+  )
+
+  # ─── Firebase ────────────────────────────────────────────────
+  pod 'Firebase/Core'
+  pod 'Firebase/Messaging'
+
+  # ─── Stripe ──────────────────────────────────────────────────
+  # Stripe React Native handles its own pod installation via autolinking.
+  # No manual pod entry needed — @stripe/stripe-react-native autolinks.
+
+  # ─── Agora ───────────────────────────────────────────────────
+  # react-native-agora handles its own pod installation via autolinking.
+  # The native Agora SDK (AgoraRtcEngine_iOS) is pulled in automatically.
+
+  post_install do |installer|
+    react_native_post_install(
+      installer,
+      config[:reactNativePath],
+      :mac_catalyst_enabled => false
+    )
+
+    installer.pods_project.targets.each do |target|
+      target.build_configurations.each do |config|
+        # Minimum deployment target
+        config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.0'
+
+        # Disable bitcode (required by Agora and Stripe)
+        config.build_settings['ENABLE_BITCODE'] = 'NO'
+
+        # Suppress warnings from third-party pods
+        config.build_settings['GCC_WARN_INHIBIT_ALL_WARNINGS'] = 'YES'
+      end
+    end
+  end
+end

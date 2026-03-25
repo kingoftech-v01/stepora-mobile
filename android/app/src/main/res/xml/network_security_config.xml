@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Network Security Configuration for Stepora.
+  Only allows HTTPS connections. No cleartext traffic.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+    <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="true">api.stepora.app</domain>
+        <domain includeSubdomains="true">stepora.app</domain>
+        <domain includeSubdomains="true">checkout.stripe.com</domain>
+        <domain includeSubdomains="true">billing.stripe.com</domain>
+    </domain-config>
+</network-security-config>

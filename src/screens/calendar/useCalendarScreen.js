@@ -1,0 +1,256 @@
+/**
+ * useCalendarScreen — Business logic for the Calendar screen.
+ * Fetches tasks and events, builds calendar grid, handles mutations.
+ */
+var { useState, useEffect } = require('react');
+var { useNavigation } = require('@react-navigation/native');
+var { useQuery, useMutation, useQueryClient } = require('@tanstack/react-query');
+var { apiGet, apiPost, apiPatch, apiDelete } = require('../../services/api');
+var { CALENDAR, DREAMS } = require('../../services/endpoints');
+var { BRAND, adaptColor } = require('../../styles/colors');
+
+var NOW = new Date();
+var TODAY = { y: NOW.getFullYear(), m: NOW.getMonth(), d: NOW.getDate() };
+
+var TYPE_COLORS = {
+  task: '#5DE5A8',
+  event: '#C4B5FD',
+  reminder: '#FCD34D',
+  deadline: '#F69A9A',
+};
+
+function getKey(y, m, d) { return y + '-' + m + '-' + d; }
+function getDaysInMonth(y, m) { return new Date(y, m + 1, 0).getDate(); }
+function getFirstDow(y, m) { var d = new Date(y, m, 1).getDay(); return d === 0 ? 6 : d - 1; }
+
+function normalizeTask(t) {
+  return {
+    id: t.taskId || t.id,
+    title: t.taskTitle || t.title || '',
+    date: t.scheduledDate || t.date || '',
+    time: t.scheduledTime || t.time || '',
+    done: t.status === 'completed' || t.done || t.completed || false,
+    type: 'task',
+    color: TYPE_COLORS.task,
+    dream: t.dreamTitle || t.dream || '',
+    dreamId: t.dreamId || '',
+    isTask: true,
+    isDeadline: false,
+  };
+}
+
+function normalizeEvent(e) {
+  var start = e.startTime || e.start || '';
+  var dateStr = start ? start.split('T')[0] : '';
+  var timeStr = start && start.includes('T') ? start.split('T')[1].substring(0, 5) : '';
+  return {
+    id: e.id,
+    title: e.title || '',
+    date: dateStr,
+    time: timeStr,
+    done: e.status === 'completed' || e.completed || false,
+    type: 'event',
+    color: TYPE_COLORS.event,
+    dream: e.dreamTitle || '',
+    isTask: false,
+    isDeadline: false,
+  };
+}
+
+function parseTimeTo24h(timeStr) {
+  var match = (timeStr || '').match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/i);
+  if (!match) return '09:00:00';
+  var h = parseInt(match[1], 10);
+  var m = match[2];
+  var ampm = (match[3] || '').toUpperCase();
+  if (ampm === 'PM' && h < 12) h += 12;
+  if (ampm === 'AM' && h === 12) h = 0;
+  return String(h).padStart(2, '0') + ':' + m + ':00';
+}
+
+var useCalendarScreen = function () {
+  var navigation = useNavigation();
+  var queryClient = useQueryClient();
+
+  var DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  var MONTHS = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December',
+  ];
+
+  var [mounted, setMounted] = useState(false);
+  var [viewY, setViewY] = useState(TODAY.y);
+  var [viewM, setViewM] = useState(TODAY.m);
+  var [selDay, setSelDay] = useState(null);
+  var [addEvt, setAddEvt] = useState(false);
+  var [newTitle, setNewTitle] = useState('');
+  var [newTime, setNewTime] = useState('9:00 AM');
+  var [confirmDel, setConfirmDel] = useState(null);
+
+  var startDate = viewY + '-' + String(viewM + 1).padStart(2, '0') + '-01';
+  var endDay = getDaysInMonth(viewY, viewM);
+  var endDate = viewY + '-' + String(viewM + 1).padStart(2, '0') + '-' + String(endDay).padStart(2, '0');
+
+  var tasksQuery = useQuery({
+    queryKey: ['calendar-tasks', startDate, endDate],
+    queryFn: function () { return apiGet(CALENDAR.VIEW + '?start=' + startDate + '&end=' + endDate); },
+  });
+
+  var eventsQuery = useQuery({
+    queryKey: ['calendar-events', startDate, endDate],
+    queryFn: function () { return apiGet(CALENDAR.EVENTS + '?start_time__gte=' + startDate + '&start_time__lte=' + endDate + 'T23:59:59'); },
+  });
+
+  var todayQuery = useQuery({
+    queryKey: ['calendar-today'],
+    queryFn: function () { return apiGet(CALENDAR.TODAY); },
+  });
+
+  useEffect(function () { setTimeout(function () { setMounted(true); }, 100); }, []);
+
+  // Build events map
+  var events = {};
+  function addToMap(item) {
+    if (!item.date) return;
+    var d = new Date(item.date);
+    if (isNaN(d.getTime())) return;
+    var k = getKey(d.getFullYear(), d.getMonth(), d.getDate());
+    if (!events[k]) events[k] = [];
+    var exists = events[k].some(function (e) { return e.id === item.id; });
+    if (!exists) events[k].push(item);
+  }
+
+  var rawTasks = (tasksQuery.data && tasksQuery.data.results) || tasksQuery.data || [];
+  if (Array.isArray(rawTasks)) rawTasks.forEach(function (t) { addToMap(normalizeTask(t)); });
+
+  var rawCalEvents = (eventsQuery.data && eventsQuery.data.results) || eventsQuery.data || [];
+  if (Array.isArray(rawCalEvents)) rawCalEvents.forEach(function (e) { addToMap(normalizeEvent(e)); });
+
+  var rawToday = (todayQuery.data && todayQuery.data.results) || todayQuery.data || [];
+  if (Array.isArray(rawToday)) rawToday.forEach(function (t) { addToMap(normalizeTask(t)); });
+
+  function invalidateCalendar() {
+    queryClient.invalidateQueries({ queryKey: ['calendar-tasks'] });
+    queryClient.invalidateQueries({ queryKey: ['calendar-events'] });
+    queryClient.invalidateQueries({ queryKey: ['calendar-today'] });
+  }
+
+  var toggleTaskMut = useMutation({
+    mutationFn: function (params) { return apiPost(DREAMS.TASKS.COMPLETE(params.id)); },
+    onSuccess: invalidateCalendar,
+  });
+
+  var deleteEventMut = useMutation({
+    mutationFn: function (params) { return apiDelete(CALENDAR.EVENT_DETAIL(params.id)); },
+    onSuccess: invalidateCalendar,
+  });
+
+  var createMutation = useMutation({
+    mutationFn: function (body) { return apiPost(CALENDAR.EVENTS, body); },
+    onSuccess: invalidateCalendar,
+  });
+
+  var prevMonth = function () {
+    if (viewM === 0) { setViewM(11); setViewY(viewY - 1); }
+    else { setViewM(viewM - 1); }
+    setSelDay(1);
+  };
+
+  var nextMonth = function () {
+    if (viewM === 11) { setViewM(0); setViewY(viewY + 1); }
+    else { setViewM(viewM + 1); }
+    setSelDay(1);
+  };
+
+  var goToday = function () { setViewY(TODAY.y); setViewM(TODAY.m); setSelDay(null); };
+
+  var toggleTask = function (evtKey, evtId) {
+    var evt = (events[evtKey] || []).find(function (e) { return e.id === evtId; });
+    if (!evt) return;
+    if (evt.isTask) toggleTaskMut.mutate({ id: evtId });
+  };
+
+  var deleteEvent = function (evtKey, evtId) {
+    var evt = (events[evtKey] || []).find(function (e) { return e.id === evtId; });
+    if (evt && !evt.isTask) deleteEventMut.mutate({ id: evtId });
+    setConfirmDel(null);
+  };
+
+  var handleAddEvt = function () {
+    if (!newTitle.trim()) return;
+    var day = selDay || TODAY.d;
+    var dateStr = viewY + '-' + String(viewM + 1).padStart(2, '0') + '-' + String(day).padStart(2, '0');
+    var time24 = parseTimeTo24h(newTime);
+    var startTime = dateStr + 'T' + time24;
+    var endH = parseInt(time24.split(':')[0], 10) + 1;
+    var endTime = dateStr + 'T' + String(endH).padStart(2, '0') + ':' + time24.split(':')[1] + ':00';
+    createMutation.mutate({ title: newTitle.trim(), start_time: startTime, end_time: endTime });
+    setNewTitle('');
+    setAddEvt(false);
+  };
+
+  var isLoading = tasksQuery.isLoading || todayQuery.isLoading;
+  var daysInMonth = getDaysInMonth(viewY, viewM);
+  var firstDow = getFirstDow(viewY, viewM);
+
+  var isToday = function (d) { return d === TODAY.d && viewM === TODAY.m && viewY === TODAY.y; };
+  var isSel = function (d) { return selDay !== null && d === selDay; };
+
+  var todayKey = getKey(TODAY.y, TODAY.m, TODAY.d);
+  var tomorrowD = new Date(TODAY.y, TODAY.m, TODAY.d + 1);
+  var tomorrowKey = getKey(tomorrowD.getFullYear(), tomorrowD.getMonth(), tomorrowD.getDate());
+  var todayEvents = events[todayKey] || [];
+  var tomorrowEvents = events[tomorrowKey] || [];
+  var selKey = selDay ? getKey(viewY, viewM, selDay) : null;
+  var selEvents = selKey ? events[selKey] || [] : [];
+
+  var cells = [];
+  for (var i = 0; i < firstDow; i++) cells.push(null);
+  for (var d = 1; d <= daysInMonth; d++) cells.push(d);
+
+  return {
+    navigation: navigation,
+    mounted: mounted,
+    viewY: viewY,
+    viewM: viewM,
+    selDay: selDay,
+    setSelDay: setSelDay,
+    addEvt: addEvt,
+    setAddEvt: setAddEvt,
+    newTitle: newTitle,
+    setNewTitle: setNewTitle,
+    newTime: newTime,
+    setNewTime: setNewTime,
+    confirmDel: confirmDel,
+    setConfirmDel: setConfirmDel,
+    tasksQuery: tasksQuery,
+    todayQuery: todayQuery,
+    events: events,
+    isLoading: isLoading,
+    prevMonth: prevMonth,
+    nextMonth: nextMonth,
+    goToday: goToday,
+    toggleTask: toggleTask,
+    deleteEvent: deleteEvent,
+    handleAddEvt: handleAddEvt,
+    isToday: isToday,
+    isSel: isSel,
+    todayKey: todayKey,
+    tomorrowKey: tomorrowKey,
+    tomorrowD: tomorrowD,
+    todayEvents: todayEvents,
+    tomorrowEvents: tomorrowEvents,
+    selKey: selKey,
+    selEvents: selEvents,
+    cells: cells,
+    DAYS: DAYS,
+    MONTHS: MONTHS,
+    TODAY: TODAY,
+    BRAND: BRAND,
+    adaptColor: adaptColor,
+    TYPE_COLORS: TYPE_COLORS,
+    getKey: getKey,
+  };
+};
+
+module.exports = useCalendarScreen;

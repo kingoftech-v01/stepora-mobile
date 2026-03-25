@@ -1,0 +1,92 @@
+// App-level build file — Stepora Mobile
+apply plugin: "com.android.application"
+apply plugin: "org.jetbrains.kotlin.android"
+apply plugin: "com.google.gms.google-services"
+
+/**
+ * This is the configuration block to customize your React Native Android app.
+ * By default you don't need to apply the plugin manually; the CLI links it.
+ */
+react {
+    /* Autolinking — handled by the React Native CLI */
+}
+
+def enableProguardInReleaseBuilds = true
+
+android {
+    ndkVersion rootProject.ext.ndkVersion
+    buildToolsVersion rootProject.ext.buildToolsVersion
+    compileSdk rootProject.ext.compileSdkVersion
+
+    namespace "com.stepora.app"
+
+    defaultConfig {
+        applicationId "com.stepora.app"
+        minSdkVersion rootProject.ext.minSdkVersion
+        targetSdkVersion rootProject.ext.targetSdkVersion
+        versionCode 1
+        versionName "1.0.0"
+
+        // Multi-dex support
+        multiDexEnabled true
+    }
+
+    signingConfigs {
+        debug {
+            storeFile file('debug.keystore')
+            storePassword 'android'
+            keyAlias 'androiddebugkey'
+            keyPassword 'android'
+        }
+        release {
+            // TODO: Configure release signing — replace with your upload keystore
+            // storeFile file('stepora-upload-key.keystore')
+            // storePassword System.getenv("STEPORA_KEYSTORE_PASSWORD") ?: ""
+            // keyAlias System.getenv("STEPORA_KEY_ALIAS") ?: "stepora-upload"
+            // keyPassword System.getenv("STEPORA_KEY_PASSWORD") ?: ""
+        }
+    }
+
+    buildTypes {
+        debug {
+            signingConfig signingConfigs.debug
+        }
+        release {
+            signingConfig signingConfigs.debug // TODO: Switch to signingConfigs.release before publishing
+            minifyEnabled enableProguardInReleaseBuilds
+            proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
+        }
+    }
+
+    packagingOptions {
+        pickFirst '**/libc++_shared.so'
+        pickFirst '**/libfbjni.so'
+    }
+}
+
+dependencies {
+    // The version of react-native is set by the React Native Gradle Plugin
+    implementation("com.facebook.react:react-android")
+
+    // Firebase
+    implementation platform('com.google.firebase:firebase-bom:33.7.0')
+    implementation 'com.google.firebase:firebase-messaging'
+
+    // Multi-dex
+    implementation 'androidx.multidex:multidex:2.0.1'
+
+    // Google Mobile Ads (AdMob)
+    implementation 'com.google.android.gms:play-services-ads:23.6.0'
+
+    // Biometrics
+    implementation 'androidx.biometric:biometric:1.2.0-alpha05'
+
+    if (hermesEnabled.toBoolean()) {
+        implementation("com.facebook.react:hermes-android")
+    } else {
+        implementation jscFlavor
+    }
+}
+
+apply from: file("../../node_modules/@react-native-community/cli-platform-android/native_modules.gradle");
+applyNativeModulesAppBuildGradle(project)
