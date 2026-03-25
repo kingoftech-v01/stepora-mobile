@@ -25,6 +25,7 @@ var GlassHeader = require('../../components/shared/GlassHeader');
 var GlassCard = require('../../components/shared/GlassCard');
 var Avatar = require('../../components/shared/Avatar');
 var Icon = require('react-native-vector-icons/Feather').default;
+var { useAuth } = require('../../context/AuthContext');
 var { COLORS, SPACING, RADIUS, CONTACT_COLORS } = require('../../theme/tokens');
 
 var avatarColor = function (name) {
@@ -51,6 +52,7 @@ var CircleChallengesScreen = function () {
   var navigation = useNavigation();
   var route = useRoute();
   var circleId = route.params && route.params.circleId;
+  var { user: authUser } = useAuth();
   var qc = useQueryClient();
 
   var [activeTab, setActiveTab] = useState('active');
@@ -71,10 +73,13 @@ var CircleChallengesScreen = function () {
     },
     enabled: !!circleId,
   });
-  var circle = circleQuery.data || {};
+  var rawCircleData = circleQuery.data || {};
+  var circle = rawCircleData.circle || rawCircleData;
   var members = circle.members || [];
   var myRole = (function () {
-    var me = members.find(function (m) { return m.isCurrentUser; });
+    var me = members.find(function (m) {
+      return m.isCurrentUser || String((m.user || m).id) === String(authUser && authUser.id);
+    });
     return me ? me.role : null;
   })();
   var isAdmin = myRole === 'admin';
@@ -178,7 +183,7 @@ var CircleChallengesScreen = function () {
 
   var renderChallenge = useCallback(function (info) {
     var ch = info.item;
-    var isJoined = ch.isJoined || false;
+    var isJoined = ch.isJoined != null ? ch.isJoined : (ch.is_joined || false);
     var progressPct = ch.myProgress || ch.progress || 0;
     var deadline = ch.endDate || ch.deadline || ch.endsAt;
     var isEnded = ch.status === 'completed' || ch.status === 'ended';

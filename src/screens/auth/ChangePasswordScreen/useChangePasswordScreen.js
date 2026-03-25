@@ -1,5 +1,7 @@
 /**
  * useChangePasswordScreen -- business logic for ChangePassword (React Native).
+ * Synced with web app's useChangePasswordScreen.js.
+ * Added show/hide toggles for all three password fields.
  */
 var { useState } = require('react');
 var { useNavigation } = require('@react-navigation/native');
@@ -25,6 +27,9 @@ function useChangePasswordScreen() {
   var [currentPassword, setCurrentPassword] = useState('');
   var [newPassword, setNewPassword] = useState('');
   var [confirmPassword, setConfirmPassword] = useState('');
+  var [showCurrent, setShowCurrent] = useState(false);
+  var [showNew, setShowNew] = useState(false);
+  var [showConfirm, setShowConfirm] = useState(false);
   var [showToast, setShowToast] = useState(false);
   var [serverError, setServerError] = useState('');
   var [submitting, setSubmitting] = useState(false);
@@ -86,6 +91,12 @@ function useChangePasswordScreen() {
     setNewPassword: setNewPassword,
     confirmPassword: confirmPassword,
     setConfirmPassword: setConfirmPassword,
+    showCurrent: showCurrent,
+    setShowCurrent: setShowCurrent,
+    showNew: showNew,
+    setShowNew: setShowNew,
+    showConfirm: showConfirm,
+    setShowConfirm: setShowConfirm,
     showToast: showToast,
     serverError: serverError,
     submitting: submitting,

@@ -15,7 +15,20 @@ function sanitizeText(text, maxLen) {
   return clean;
 }
 
+/** Batch check required fields -- returns array of missing field names */
+function validateRequired(fields) {
+  var missing = [];
+  for (var key in fields) {
+    var val = fields[key];
+    if (val === undefined || val === null || (typeof val === 'string' && !val.trim())) {
+      missing.push(key);
+    }
+  }
+  return missing;
+}
+
 module.exports = {
   isValidEmail: isValidEmail,
   sanitizeText: sanitizeText,
+  validateRequired: validateRequired,
 };

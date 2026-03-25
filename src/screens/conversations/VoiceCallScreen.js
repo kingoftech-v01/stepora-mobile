@@ -1,9 +1,9 @@
 /**
  * VoiceCallScreen — Audio-only call using Agora SDK (react-native-agora).
  *
- * Initializes the Agora RTC engine in audio-only mode, fetches a token
- * from the backend, joins a channel, and manages call state.
- * Controls: mute, speaker toggle, end call.
+ * Uses FRIEND_CHAT.CALLS endpoints (not CONVERSATIONS.CALLS).
+ * Supports both CALLER and CALLEE flows.
+ * Synced with web: useVoiceCallScreen.js pattern.
  */
 var React = require('react');
 var { useState, useEffect, useCallback, useRef } = React;
@@ -18,7 +18,7 @@ var {
 } = require('react-native');
 var { useNavigation, useRoute } = require('@react-navigation/native');
 var { apiGet, apiPost } = require('../../services/api');
-var { CONVERSATIONS } = require('../../services/endpoints');
+var { FRIEND_CHAT } = require('../../services/endpoints');
 var Avatar = require('../../components/shared/Avatar');
 var Icon = require('react-native-vector-icons/Feather').default;
 var { COLORS, SPACING } = require('../../theme/tokens');
@@ -32,10 +32,6 @@ var {
 
 var AGORA_APP_ID = 'b67aeb35dbff4cb8a70278fb8e3edf46';
 
-/**
- * Request microphone permission on Android.
- * iOS permissions are handled via Info.plist at the OS level.
- */
 var requestAudioPermission = function () {
   if (Platform.OS === 'android') {
     return PermissionsAndroid.request(
@@ -47,120 +43,190 @@ var requestAudioPermission = function () {
   return Promise.resolve(true);
 };
 
+var formatDuration = function (s) {
+  var mins = Math.floor(s / 60);
+  var secs = s % 60;
+  return (mins < 10 ? '0' : '') + mins + ':' + (secs < 10 ? '0' : '') + secs;
+};
+
 var VoiceCallScreen = function () {
   var navigation = useNavigation();
   var route = useRoute();
-  var conversationId = route.params && route.params.conversationId;
-  var callTitle = (route.params && route.params.title) || 'Voice Call';
-  var [callState, setCallState] = useState('connecting');
+
+  // Route params from web pattern: callId, friendName, answering
+  var callId = (route.params && route.params.callId) || (route.params && route.params.conversationId);
+  var friendName = (route.params && route.params.friendName) || (route.params && route.params.title) || 'Voice Call';
+  var answering = (route.params && route.params.answering) || false;
+
+  var [callStatus, setCallStatus] = useState(answering ? 'connecting' : 'ringing');
   var [duration, setDuration] = useState(0);
   var [isMuted, setIsMuted] = useState(false);
   var [isSpeaker, setIsSpeaker] = useState(false);
+  var [error, setError] = useState(null);
   var [remoteUid, setRemoteUid] = useState(null);
   var durationRef = useRef(null);
-  var callIdRef = useRef(null);
   var engineRef = useRef(null);
+  var pollRef = useRef(null);
 
-  useEffect(function () {
-    var cancelled = false;
+  // CALLER flow: poll for acceptance
+  useEffect(
+    function () {
+      if (answering || !callId) return;
 
-    // 1. Request audio permission
+      function checkStatus() {
+        apiGet(FRIEND_CHAT.CALLS.STATUS(callId))
+          .then(function (data) {
+            var s = data.status;
+            if (s === 'accepted') {
+              if (pollRef.current) clearInterval(pollRef.current);
+              setCallStatus('connecting');
+              joinRTC();
+            } else if (s === 'rejected' || s === 'cancelled' || s === 'missed' || s === 'completed') {
+              if (pollRef.current) clearInterval(pollRef.current);
+              setCallStatus('ended');
+              setError(
+                s === 'rejected' ? 'Call declined'
+                  : s === 'missed' ? 'No answer'
+                  : 'Call ended'
+              );
+              setTimeout(function () {
+                navigation.goBack();
+              }, 1500);
+            }
+          })
+          .catch(function (err) {
+            console.error('[VoiceCall] poll:', err);
+          });
+      }
+
+      checkStatus();
+      pollRef.current = setInterval(checkStatus, 2000);
+
+      return function () {
+        if (pollRef.current) clearInterval(pollRef.current);
+      };
+    },
+    [callId, answering],
+  );
+
+  // CALLEE flow: accept call
+  useEffect(
+    function () {
+      if (!answering || !callId) return;
+      apiPost(FRIEND_CHAT.CALLS.ACCEPT(callId))
+        .then(function () {
+          setCallStatus('connecting');
+          joinRTC();
+        })
+        .catch(function (err) {
+          setError(err.userMessage || err.message || 'Failed to accept call');
+        });
+    },
+    [callId, answering],
+  );
+
+  // Auto-timeout for ringing
+  useEffect(
+    function () {
+      if (callStatus !== 'ringing') return;
+      var timeout = setTimeout(function () {
+        apiPost(FRIEND_CHAT.CALLS.CANCEL(callId)).catch(function () {});
+        setError('No answer');
+        setTimeout(function () {
+          navigation.goBack();
+        }, 1500);
+      }, 30000);
+      return function () {
+        clearTimeout(timeout);
+      };
+    },
+    [callStatus, callId],
+  );
+
+  // Timer
+  useEffect(
+    function () {
+      if (callStatus === 'active') {
+        durationRef.current = setInterval(function () {
+          setDuration(function (prev) {
+            return prev + 1;
+          });
+        }, 1000);
+      }
+      return function () {
+        if (durationRef.current) clearInterval(durationRef.current);
+      };
+    },
+    [callStatus],
+  );
+
+  var joinRTC = function () {
+    if (engineRef.current) return;
+
     requestAudioPermission()
       .then(function (granted) {
-        if (cancelled) return;
         if (!granted) {
-          console.error('[VoiceCall] Microphone permission denied');
-          setCallState('ended');
+          setError('Microphone permission denied');
+          setCallStatus('ended');
           return Promise.reject(new Error('Permission denied'));
         }
 
-        // 2. Initiate call on backend
-        return apiPost(CONVERSATIONS.CALLS.INITIATE, {
-          conversation_id: conversationId,
-          call_type: 'audio',
-        });
+        return apiGet(FRIEND_CHAT.AGORA.RTC_TOKEN + '?channel=' + callId);
       })
-      .then(function (data) {
-        if (cancelled || !data) return;
-        callIdRef.current = data.id || data.callId;
-        setCallState('ringing');
+      .then(function (agoraData) {
+        if (!agoraData) return;
 
-        // 3. Get Agora RTC token from backend
-        var channelName = data.channelName || conversationId;
-        return apiGet(
-          CONVERSATIONS.AGORA.RTC_TOKEN + '?channel=' + channelName
-        ).then(function (agoraData) {
-          if (cancelled) return;
-          return { agoraData: agoraData, channelName: channelName };
-        });
-      })
-      .then(function (result) {
-        if (cancelled || !result) return;
-        var agoraData = result.agoraData;
-        var channelName = result.channelName;
-
-        // 4. Create and initialize Agora engine (audio only)
         var engine = createAgoraRtcEngine();
         engine.initialize({
           appId: agoraData.appId || AGORA_APP_ID,
           channelProfile: ChannelProfileType.ChannelProfileCommunication,
         });
 
-        // Register event handlers
         engine.registerEventHandler({
-          onJoinChannelSuccess: function (_connection, _elapsed) {
-            if (!cancelled) {
-              setCallState('active');
-              durationRef.current = setInterval(function () {
-                setDuration(function (prev) {
-                  return prev + 1;
-                });
-              }, 1000);
-            }
+          onJoinChannelSuccess: function () {
+            setCallStatus('active');
           },
-          onUserJoined: function (_connection, uid, _elapsed) {
-            if (!cancelled) {
-              setRemoteUid(uid);
-            }
+          onUserJoined: function (_connection, uid) {
+            setRemoteUid(uid);
           },
-          onUserOffline: function (_connection, uid, _reason) {
-            if (!cancelled) {
-              setRemoteUid(function (prev) {
-                return prev === uid ? null : prev;
-              });
-            }
+          onUserOffline: function (_connection, uid) {
+            setRemoteUid(function (prev) {
+              return prev === uid ? null : prev;
+            });
+            handleEndCall();
           },
           onError: function (err, msg) {
             console.error('[VoiceCall] Agora error:', err, msg);
           },
         });
 
-        // Enable audio only (no video)
         engine.enableAudio();
         engine.disableVideo();
-
-        // Set default speaker mode (earpiece for voice calls)
         engine.setEnableSpeakerphone(false);
 
-        // Join channel
         var token = agoraData.token || '';
         var uid = agoraData.uid || 0;
-        engine.joinChannel(token, channelName, uid, {
+        engine.joinChannel(token, String(callId), uid, {
           clientRoleType: ClientRoleType.ClientRoleBroadcaster,
         });
 
         engineRef.current = engine;
       })
       .catch(function (err) {
-        if (!cancelled) {
-          console.error('[VoiceCall] init error:', err);
-          setCallState('ended');
-        }
+        console.error('[VoiceCall] join error:', err);
+        setError(err.userMessage || err.message || 'Could not connect');
+        setCallStatus('ended');
       });
+  };
 
-    return function () {
-      cancelled = true;
+  var handleEndCall = useCallback(
+    function () {
       if (durationRef.current) clearInterval(durationRef.current);
+      if (pollRef.current) clearInterval(pollRef.current);
+      setCallStatus('ended');
+      if (callId) {
+        apiPost(FRIEND_CHAT.CALLS.END(callId)).catch(function () {});
+      }
       if (engineRef.current) {
         try {
           engineRef.current.leaveChannel();
@@ -170,40 +236,40 @@ var VoiceCallScreen = function () {
         }
         engineRef.current = null;
       }
-      if (callIdRef.current) {
-        apiPost(CONVERSATIONS.CALLS.END(callIdRef.current)).catch(function () {});
-      }
-    };
-  }, [conversationId]);
+      setTimeout(function () {
+        navigation.goBack();
+      }, 500);
+    },
+    [navigation, callId],
+  );
 
-  var formatDuration = function (s) {
-    var mins = Math.floor(s / 60);
-    var secs = s % 60;
-    return (mins < 10 ? '0' : '') + mins + ':' + (secs < 10 ? '0' : '') + secs;
-  };
-
-  var handleEndCall = useCallback(
+  var handleCancelCall = useCallback(
     function () {
-      if (durationRef.current) clearInterval(durationRef.current);
-      setCallState('ended');
-      if (callIdRef.current) {
-        apiPost(CONVERSATIONS.CALLS.END(callIdRef.current)).catch(function () {});
+      if (callId) {
+        apiPost(FRIEND_CHAT.CALLS.CANCEL(callId)).catch(function () {});
       }
+      if (pollRef.current) clearInterval(pollRef.current);
+      navigation.goBack();
+    },
+    [navigation, callId],
+  );
+
+  // Cleanup on unmount
+  useEffect(function () {
+    return function () {
+      if (durationRef.current) clearInterval(durationRef.current);
+      if (pollRef.current) clearInterval(pollRef.current);
       if (engineRef.current) {
         try {
           engineRef.current.leaveChannel();
           engineRef.current.release();
         } catch (e) {
-          console.warn('[VoiceCall] end call cleanup error:', e);
+          console.warn('[VoiceCall] cleanup error:', e);
         }
         engineRef.current = null;
       }
-      setTimeout(function () {
-        navigation.goBack();
-      }, 500);
-    },
-    [navigation]
-  );
+    };
+  }, []);
 
   var handleToggleMute = useCallback(function () {
     setIsMuted(function (prev) {
@@ -225,6 +291,14 @@ var VoiceCallScreen = function () {
     });
   }, []);
 
+  var statusText = error
+    ? error
+    : callStatus === 'ringing' ? 'Calling...'
+    : callStatus === 'connecting' ? 'Connecting...'
+    : callStatus === 'active' ? formatDuration(duration)
+    : callStatus === 'ended' ? 'Call ended'
+    : '...';
+
   return React.createElement(
     View,
     { style: styles.container },
@@ -232,39 +306,26 @@ var VoiceCallScreen = function () {
     React.createElement(
       View,
       { style: styles.topArea },
-      // Decorative rings
       React.createElement(View, { style: styles.ring3 }),
       React.createElement(View, { style: styles.ring2 }),
       React.createElement(View, { style: styles.ring1 }),
-      React.createElement(Avatar, { name: callTitle, size: 100, color: COLORS.purple }),
-      React.createElement(Text, { style: styles.callerName }, callTitle),
-      callState === 'connecting'
+      React.createElement(Avatar, { name: friendName, size: 100, color: COLORS.purple }),
+      React.createElement(Text, { style: styles.callerName }, friendName),
+      callStatus === 'connecting'
         ? React.createElement(
             View,
             { style: styles.statusRow },
             React.createElement(ActivityIndicator, { size: 'small', color: COLORS.purple }),
-            React.createElement(Text, { style: styles.statusText }, 'Connecting...')
+            React.createElement(Text, { style: styles.statusText }, statusText)
           )
-        : callState === 'ringing'
-          ? React.createElement(Text, { style: styles.statusText }, 'Ringing...')
-          : callState === 'active'
-            ? React.createElement(
-                View,
-                { style: styles.activeInfo },
-                React.createElement(
-                  Text,
-                  { style: styles.durationText },
-                  formatDuration(duration)
-                ),
-                remoteUid === null
-                  ? React.createElement(
-                      Text,
-                      { style: styles.waitingText },
-                      'Waiting for other participant...'
-                    )
-                  : null
-              )
-            : React.createElement(Text, { style: styles.statusText }, 'Call ended')
+        : React.createElement(Text, { style: styles.statusText }, statusText),
+      callStatus === 'active' && remoteUid === null
+        ? React.createElement(
+            Text,
+            { style: styles.waitingText },
+            'Waiting for other participant...'
+          )
+        : null
     ),
 
     // Controls
@@ -296,10 +357,10 @@ var VoiceCallScreen = function () {
         TouchableOpacity,
         {
           style: [styles.controlBtn, styles.endCallBtn],
-          onPress: handleEndCall,
+          onPress: callStatus === 'ringing' ? handleCancelCall : handleEndCall,
           accessible: true,
           accessibilityRole: 'button',
-          accessibilityLabel: 'End call',
+          accessibilityLabel: callStatus === 'ringing' ? 'Cancel call' : 'End call',
         },
         React.createElement(Icon, { name: 'phone-off', size: 28, color: '#FFFFFF' })
       ),
@@ -375,15 +436,6 @@ var styles = StyleSheet.create({
     color: COLORS.textSecondary,
     marginTop: 8,
     marginLeft: 8,
-  },
-  activeInfo: {
-    alignItems: 'center',
-    marginTop: 10,
-  },
-  durationText: {
-    fontSize: 18,
-    color: COLORS.textSecondary,
-    fontVariant: ['tabular-nums'],
   },
   waitingText: {
     fontSize: 12,

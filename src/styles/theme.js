@@ -1,7 +1,33 @@
 /**
  * Stepora Mobile — Theme tokens for the glass morphism dark theme.
  * CSS variables from the web app are mapped to static values here.
+ *
+ * Also re-exports structural tokens from theme/tokens.js so that
+ * shared components can destructure { COLORS, FONT_SIZES, ... } from here.
  */
+var tokens = require('../theme/tokens');
+
+var COLORS = tokens.COLORS;
+var FONT_SIZES = tokens.FONT_SIZES;
+var FONT_WEIGHTS = tokens.FONT_WEIGHTS;
+var SPACING = tokens.SPACING;
+var RADIUS = tokens.RADIUS;
+var SHADOWS = {
+  card: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  soft: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+};
 
 var dark = {
   bg: '#03010a',
@@ -51,4 +77,13 @@ var light = {
   cardShadow: 'rgba(0,0,0,0.1)',
 };
 
-module.exports = { dark: dark, light: light };
+module.exports = {
+  dark: dark,
+  light: light,
+  COLORS: COLORS,
+  FONT_SIZES: FONT_SIZES,
+  FONT_WEIGHTS: FONT_WEIGHTS,
+  SPACING: SPACING,
+  RADIUS: RADIUS,
+  SHADOWS: SHADOWS,
+};

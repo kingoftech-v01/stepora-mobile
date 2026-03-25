@@ -96,6 +96,32 @@ var TimeBlockScreen = function () {
                 h.formatTimeDisplay(block.startTime) + ' - ' + h.formatTimeDisplay(block.endTime)
               )
             ),
+            // Block type + day of week badges
+            React.createElement(View, { style: { flexDirection: 'row', gap: 6, marginTop: 4 } },
+              (block.blockType || block.block_type)
+                ? React.createElement(View, {
+                    style: [styles.dreamBadge, { backgroundColor: blockColor + '15', borderColor: blockColor + '25' }],
+                  },
+                    React.createElement(Icon, { name: 'tag', size: 10, color: blockColor }),
+                    React.createElement(Text, { style: [styles.dreamBadgeText, { color: blockColor }] },
+                      (block.blockType || block.block_type || '').charAt(0).toUpperCase() +
+                      (block.blockType || block.block_type || '').slice(1)
+                    )
+                  )
+                : null,
+              (block.dayOfWeek != null || block.day_of_week != null)
+                ? React.createElement(View, {
+                    style: [styles.dreamBadge, { backgroundColor: blockColor + '15', borderColor: blockColor + '25' }],
+                  },
+                    React.createElement(Icon, { name: 'calendar', size: 10, color: blockColor }),
+                    React.createElement(Text, { style: [styles.dreamBadgeText, { color: blockColor }] },
+                      ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][
+                        block.dayOfWeek != null ? block.dayOfWeek : block.day_of_week
+                      ] || ''
+                    )
+                  )
+                : null
+            ),
             dreamTitle
               ? React.createElement(View, {
                   style: [styles.dreamBadge, { backgroundColor: blockColor + '15', borderColor: blockColor + '25' }],
@@ -179,6 +205,41 @@ var TimeBlockScreen = function () {
           placeholderTextColor: COLORS.textMuted,
           accessible: true, accessibilityLabel: 'Time block title',
         }),
+        // Block Type
+        React.createElement(Text, { style: styles.formLabel }, 'Block Type'),
+        React.createElement(ScrollView, { horizontal: true, showsHorizontalScrollIndicator: false, style: { marginBottom: 14 } },
+          h.BLOCK_TYPE_OPTIONS.map(function (opt) {
+            var active = h.formBlockType === opt.value;
+            return React.createElement(TouchableOpacity, {
+              key: opt.value,
+              style: [styles.dreamPick, active && styles.dreamPickActive],
+              onPress: function () { h.setFormBlockType(opt.value); },
+              accessible: true, accessibilityRole: 'radio', accessibilityLabel: opt.value + ' block type', accessibilityState: { selected: active },
+            },
+              React.createElement(Text, {
+                style: [styles.dreamPickText, active && { color: COLORS.accent }],
+              }, opt.value.charAt(0).toUpperCase() + opt.value.slice(1))
+            );
+          })
+        ),
+        // Day of Week
+        React.createElement(Text, { style: styles.formLabel }, 'Day of Week'),
+        React.createElement(ScrollView, { horizontal: true, showsHorizontalScrollIndicator: false, style: { marginBottom: 14 } },
+          h.DAY_OF_WEEK_OPTIONS.map(function (opt) {
+            var active = h.formDayOfWeek === opt.value;
+            var dayLabel = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][opt.value] || '';
+            return React.createElement(TouchableOpacity, {
+              key: opt.value,
+              style: [styles.dreamPick, active && styles.dreamPickActive],
+              onPress: function () { h.setFormDayOfWeek(opt.value); },
+              accessible: true, accessibilityRole: 'radio', accessibilityLabel: dayLabel + ' day', accessibilityState: { selected: active },
+            },
+              React.createElement(Text, {
+                style: [styles.dreamPickText, active && { color: COLORS.accent }],
+              }, dayLabel)
+            );
+          })
+        ),
         // Time row
         React.createElement(View, { style: styles.timeFormRow },
           React.createElement(View, { style: { flex: 1 } },

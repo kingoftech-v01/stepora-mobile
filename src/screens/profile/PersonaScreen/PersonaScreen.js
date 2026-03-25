@@ -1,113 +1,17 @@
 /**
  * PersonaScreen -- React Native.
- * AI coach persona customization: personality, tone, check-in frequency.
+ * Profile persona fields: occupation, schedule, abilities, motivation.
+ * Synced with web app's PersonaMobile.jsx.
  */
 var React = require('react');
 var {
-  View, Text, TouchableOpacity, ScrollView,
+  View, Text, TouchableOpacity, ScrollView, TextInput,
   StyleSheet, ActivityIndicator,
 } = require('react-native');
 var usePersonaScreen = require('./usePersonaScreen');
 var { BRAND } = require('../../../styles/colors');
 var { dark } = require('../../../styles/theme');
 
-/* ─── Persona Card ────────────────────────────────────────── */
-function PersonaCard(props) {
-  var persona = props.persona;
-  var isSelected = props.isSelected;
-  var isExpanded = props.isExpanded;
-  var onSelect = props.onSelect;
-  var onToggle = props.onToggle;
-
-  return (
-    <View style={[styles.personaCard, isSelected && styles.personaCardSelected]}>
-      <TouchableOpacity
-        style={styles.personaHeader}
-        onPress={function () { onSelect(persona.id); }}
-        activeOpacity={0.7}
-        accessible={true}
-        accessibilityRole="radio"
-        accessibilityLabel={persona.name + ', ' + persona.tagline}
-        accessibilityState={{ selected: isSelected }}
-      >
-        <View style={[styles.personaIconWrap, { backgroundColor: persona.color + '20' }]}>
-          <Text style={styles.personaEmoji}>{persona.emoji}</Text>
-        </View>
-        <View style={styles.personaInfo}>
-          <Text style={[styles.personaName, isSelected && { color: persona.color }]}>
-            {persona.name}
-          </Text>
-          <Text style={styles.personaTagline}>{persona.tagline}</Text>
-        </View>
-        {isSelected ? (
-          <View style={[styles.selectedBadge, { backgroundColor: persona.color + '20', borderColor: persona.color + '40' }]}>
-            <Text style={[styles.selectedText, { color: persona.color }]}>Active</Text>
-          </View>
-        ) : (
-          <View style={styles.radioOuter}>
-            <View style={styles.radioInner} />
-          </View>
-        )}
-      </TouchableOpacity>
-
-      {/* Description */}
-      <Text style={styles.personaDesc}>{persona.description}</Text>
-
-      {/* Preview toggle */}
-      <TouchableOpacity
-        style={styles.previewToggle}
-        onPress={function () { onToggle(persona.id); }}
-        activeOpacity={0.7}
-        accessible={true}
-        accessibilityRole="button"
-        accessibilityLabel={isExpanded ? 'Hide conversation preview for ' + persona.name : 'Show conversation preview for ' + persona.name}
-        accessibilityState={{ expanded: isExpanded }}
-      >
-        <Text style={styles.previewToggleText}>
-          {isExpanded ? 'Hide preview' : 'Show conversation preview'}
-        </Text>
-      </TouchableOpacity>
-
-      {/* Conversation Preview */}
-      {isExpanded && persona.preview ? (
-        <View style={styles.previewWrap}>
-          {persona.preview.map(function (msg, i) {
-            var isUser = msg.role === 'user';
-            return (
-              <View key={i} style={[styles.previewBubble, isUser ? styles.bubbleUser : styles.bubbleAi]}>
-                <Text style={styles.bubbleLabel}>{isUser ? 'You' : persona.name}</Text>
-                <Text style={[styles.bubbleText, !isUser && { color: dark.text }]}>{msg.text}</Text>
-              </View>
-            );
-          })}
-        </View>
-      ) : null}
-    </View>
-  );
-}
-
-/* ─── Option Pill ──────────────────────────────────────────── */
-function OptionPill(props) {
-  var isSelected = props.isSelected;
-  return (
-    <TouchableOpacity
-      style={[styles.optionPill, isSelected && styles.optionPillSelected]}
-      onPress={props.onPress}
-      activeOpacity={0.7}
-      accessible={true}
-      accessibilityRole="radio"
-      accessibilityLabel={props.title + ', ' + props.desc}
-      accessibilityState={{ selected: isSelected }}
-    >
-      <Text style={[styles.optionTitle, isSelected && styles.optionTitleSelected]}>
-        {props.title}
-      </Text>
-      <Text style={styles.optionDesc}>{props.desc}</Text>
-    </TouchableOpacity>
-  );
-}
-
-/* ─── Main Screen ─────────────────────────────────────────── */
 function PersonaScreen() {
   var h = usePersonaScreen();
 
@@ -124,13 +28,13 @@ function PersonaScreen() {
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {/* Header */}
         <View style={styles.headerRow}>
-          <TouchableOpacity onPress={function () { h.navigation.goBack(); }} accessible={true} accessibilityRole="button" accessibilityLabel="Go back">
-            <Text style={styles.backText}>{'<-'} Back</Text>
+          <TouchableOpacity onPress={function () { h.navigation.goBack(); }} accessible={true} accessibilityRole="button" accessibilityLabel={h.t('common.back')}>
+            <Text style={styles.backText}>{'<-'} {h.t('common.back')}</Text>
           </TouchableOpacity>
-          <Text style={styles.headerTitle} accessibilityRole="header">AI Coach Persona</Text>
+          <Text style={styles.headerTitle} accessibilityRole="header">{h.t('profile.persona')}</Text>
           <View style={{ width: 60, alignItems: 'flex-end' }}>
-            {h.hasChanges && !h.saving ? (
-              <Text style={styles.unsavedText}>Unsaved</Text>
+            {h.dirty && !h.saving ? (
+              <Text style={styles.unsavedText}>{h.t('common.unsaved') || 'Unsaved'}</Text>
             ) : h.saving ? (
               <ActivityIndicator color={BRAND.greenSolid} size="small" />
             ) : null}
@@ -139,90 +43,75 @@ function PersonaScreen() {
 
         {/* Error */}
         {h.error ? (
-          <View style={styles.errorBox} accessibilityRole="alert" accessibilityLiveRegion="assertive">
+          <View style={styles.errorBox} accessibilityRole="alert">
             <Text style={styles.errorText}>{h.error}</Text>
           </View>
         ) : null}
 
-        {/* Saved toast */}
-        {h.saved ? (
-          <View style={styles.savedBox} accessibilityRole="alert" accessibilityLiveRegion="polite">
-            <Text style={styles.savedText}>Preferences saved!</Text>
+        {/* Completion ring */}
+        <View style={styles.completionCard}>
+          <View style={styles.completionRing}>
+            <Text style={styles.completionPct}>{h.completionPct}%</Text>
           </View>
-        ) : null}
-
-        {/* Intro */}
-        <View style={styles.introCard}>
-          <Text style={styles.introEmoji}>🤖</Text>
-          <Text style={styles.introTitle}>Choose Your AI Coach</Text>
-          <Text style={styles.introDesc}>
-            Pick a personality that matches your preferred coaching style. Your AI coach will adapt its
-            communication to match this persona.
-          </Text>
+          <View style={styles.completionInfo}>
+            <Text style={styles.completionTitle}>{h.t('persona.profileCompletion') || 'Profile Completion'}</Text>
+            <Text style={styles.completionDesc}>
+              {h.t('persona.fillFieldsHint') || 'Fill in your details to help the AI coach personalize your experience.'}
+            </Text>
+          </View>
         </View>
 
-        {/* Personas */}
-        <Text style={styles.sectionTitle}>Personality</Text>
-        {h.PERSONAS.map(function (persona) {
+        {/* Progress bar */}
+        <View style={styles.progressTrack}>
+          <View style={[styles.progressFill, { width: h.completionPct + '%' }]} />
+        </View>
+
+        {/* Sections */}
+        {h.SECTIONS.map(function (section, sIdx) {
           return (
-            <PersonaCard
-              key={persona.id}
-              persona={persona}
-              isSelected={h.selectedPersona === persona.id}
-              isExpanded={h.expandedPersona === persona.id}
-              onSelect={h.handleSelectPersona}
-              onToggle={h.handleToggleExpand}
-            />
+            <View key={sIdx} style={styles.sectionWrap}>
+              <Text style={styles.sectionTitle}>{section.title}</Text>
+              <View style={styles.fieldsCard}>
+                {section.fields.map(function (field, fIdx) {
+                  var val = h.form[field.key];
+                  if (val === undefined || val === null) val = '';
+                  val = String(val);
+                  return (
+                    <View key={field.key} style={[styles.fieldWrap, fIdx < section.fields.length - 1 && styles.fieldBorder]}>
+                      <Text style={styles.fieldLabel}>{field.label}</Text>
+                      <TextInput
+                        style={[styles.fieldInput, field.multiline && styles.fieldMultiline]}
+                        value={val}
+                        onChangeText={function (text) { h.handleChange(field.key, text); }}
+                        placeholder={field.placeholder}
+                        placeholderTextColor={dark.textMuted}
+                        multiline={!!field.multiline}
+                        keyboardType={field.type === 'number' ? 'numeric' : 'default'}
+                        accessibilityLabel={field.label}
+                      />
+                    </View>
+                  );
+                })}
+              </View>
+            </View>
           );
         })}
 
-        {/* Communication Tone */}
-        <Text style={styles.sectionTitle}>Communication Tone</Text>
-        <View style={styles.optionsCard}>
-          {h.TONES.map(function (tone) {
-            return (
-              <OptionPill
-                key={tone.id}
-                title={tone.label}
-                desc={tone.desc}
-                isSelected={h.selectedTone === tone.id}
-                onPress={function () { h.setSelectedTone(tone.id); }}
-              />
-            );
-          })}
-        </View>
-
-        {/* Check-in Frequency */}
-        <Text style={styles.sectionTitle}>Check-in Frequency</Text>
-        <View style={styles.optionsCard}>
-          {h.CHECKIN_FREQUENCIES.map(function (freq) {
-            return (
-              <OptionPill
-                key={freq.id}
-                title={freq.label}
-                desc={freq.desc}
-                isSelected={h.selectedFrequency === freq.id}
-                onPress={function () { h.setSelectedFrequency(freq.id); }}
-              />
-            );
-          })}
-        </View>
-
         {/* Save Button */}
         <TouchableOpacity
-          style={[styles.saveBtn, (!h.hasChanges || h.saving) && styles.btnDisabled]}
+          style={[styles.saveBtn, (!h.dirty || h.saving) && styles.btnDisabled]}
           onPress={h.handleSave}
-          disabled={!h.hasChanges || h.saving}
+          disabled={!h.dirty || h.saving}
           activeOpacity={0.7}
           accessible={true}
           accessibilityRole="button"
-          accessibilityLabel="Save Preferences"
-          accessibilityState={{ disabled: !h.hasChanges || !!h.saving, busy: !!h.saving }}
+          accessibilityLabel={h.t('common.save') || 'Save'}
+          accessibilityState={{ disabled: !h.dirty || !!h.saving }}
         >
           {h.saving ? (
             <ActivityIndicator color="#fff" size="small" />
           ) : (
-            <Text style={styles.saveBtnText}>Save Preferences</Text>
+            <Text style={styles.saveBtnText}>{h.t('common.save') || 'Save'}</Text>
           )}
         </TouchableOpacity>
 
@@ -247,94 +136,54 @@ var styles = StyleSheet.create({
     borderRadius: 12, padding: 12, marginBottom: 12,
   },
   errorText: { fontSize: 13, color: BRAND.redSolid, lineHeight: 19 },
-  savedBox: {
-    backgroundColor: 'rgba(16,185,129,0.1)', borderWidth: 1, borderColor: 'rgba(16,185,129,0.3)',
-    borderRadius: 12, padding: 12, marginBottom: 12,
-  },
-  savedText: { fontSize: 13, fontWeight: '600', color: BRAND.greenSolid },
 
-  // Intro card
-  introCard: {
-    backgroundColor: dark.glassBg, borderRadius: 20,
+  // Completion
+  completionCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 16,
+    backgroundColor: dark.glassBg, borderRadius: 16,
     borderWidth: 1, borderColor: dark.glassBorder,
-    padding: 20, alignItems: 'center', marginBottom: 20,
+    padding: 16, marginBottom: 12,
   },
-  introEmoji: { fontSize: 32, marginBottom: 8 },
-  introTitle: { fontSize: 18, fontWeight: '700', color: dark.text, marginBottom: 6 },
-  introDesc: { fontSize: 13, color: dark.textTertiary, textAlign: 'center', lineHeight: 19 },
+  completionRing: {
+    width: 56, height: 56, borderRadius: 28,
+    backgroundColor: 'rgba(139,92,246,0.12)',
+    borderWidth: 2, borderColor: 'rgba(139,92,246,0.3)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  completionPct: { fontSize: 16, fontWeight: '800', color: BRAND.purple },
+  completionInfo: { flex: 1 },
+  completionTitle: { fontSize: 15, fontWeight: '700', color: dark.text, marginBottom: 4 },
+  completionDesc: { fontSize: 12, color: dark.textTertiary, lineHeight: 17 },
 
-  // Section title
+  progressTrack: {
+    height: 4, borderRadius: 2, backgroundColor: dark.glassBorder,
+    overflow: 'hidden', marginBottom: 20,
+  },
+  progressFill: {
+    height: '100%', borderRadius: 2, backgroundColor: BRAND.purple,
+  },
+
+  // Sections
+  sectionWrap: { marginBottom: 16 },
   sectionTitle: {
     fontSize: 12, fontWeight: '700', color: dark.textTertiary,
     textTransform: 'uppercase', letterSpacing: 0.8,
-    paddingLeft: 4, marginBottom: 10, marginTop: 8,
+    paddingLeft: 4, marginBottom: 10,
   },
-
-  // Persona card
-  personaCard: {
+  fieldsCard: {
     backgroundColor: dark.glassBg, borderRadius: 16,
     borderWidth: 1, borderColor: dark.glassBorder,
-    padding: 16, marginBottom: 8,
+    overflow: 'hidden',
   },
-  personaCardSelected: {
-    borderColor: 'rgba(139,92,246,0.4)', backgroundColor: 'rgba(139,92,246,0.04)',
-  },
-  personaHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 8 },
-  personaIconWrap: { width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
-  personaEmoji: { fontSize: 22 },
-  personaInfo: { flex: 1 },
-  personaName: { fontSize: 15, fontWeight: '700', color: dark.text },
-  personaTagline: { fontSize: 12, color: dark.textTertiary, marginTop: 1 },
-  selectedBadge: {
-    paddingHorizontal: 10, paddingVertical: 3, borderRadius: 8,
-    borderWidth: 1,
-  },
-  selectedText: { fontSize: 11, fontWeight: '700' },
-  radioOuter: {
-    width: 22, height: 22, borderRadius: 11,
-    borderWidth: 2, borderColor: dark.textMuted,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  radioInner: { width: 0, height: 0, borderRadius: 5 },
-  personaDesc: { fontSize: 13, color: dark.textPrimary, lineHeight: 19, marginBottom: 8 },
-
-  // Preview toggle
-  previewToggle: { paddingVertical: 6 },
-  previewToggleText: { fontSize: 12, fontWeight: '600', color: BRAND.purple },
-
-  // Conversation preview
-  previewWrap: {
-    marginTop: 8, backgroundColor: dark.surface, borderRadius: 12,
-    padding: 12, gap: 8,
-  },
-  previewBubble: {
-    borderRadius: 12, padding: 10, maxWidth: '90%',
-  },
-  bubbleUser: {
-    backgroundColor: 'rgba(139,92,246,0.12)', alignSelf: 'flex-end',
-  },
-  bubbleAi: {
-    backgroundColor: 'rgba(255,255,255,0.04)', alignSelf: 'flex-start',
-  },
-  bubbleLabel: { fontSize: 10, fontWeight: '700', color: dark.textMuted, marginBottom: 4 },
-  bubbleText: { fontSize: 13, color: BRAND.purpleLight, lineHeight: 18 },
-
-  // Options card
-  optionsCard: {
-    backgroundColor: dark.glassBg, borderRadius: 16,
+  fieldWrap: { padding: 16 },
+  fieldBorder: { borderBottomWidth: 1, borderBottomColor: dark.divider },
+  fieldLabel: { fontSize: 13, fontWeight: '600', color: dark.text, marginBottom: 8 },
+  fieldInput: {
+    fontSize: 14, color: dark.text, backgroundColor: dark.surface,
+    borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10,
     borderWidth: 1, borderColor: dark.glassBorder,
-    padding: 8, marginBottom: 12,
   },
-  optionPill: {
-    borderRadius: 12, padding: 14, marginBottom: 4,
-    borderWidth: 1, borderColor: 'transparent',
-  },
-  optionPillSelected: {
-    backgroundColor: 'rgba(139,92,246,0.08)', borderColor: 'rgba(139,92,246,0.3)',
-  },
-  optionTitle: { fontSize: 14, fontWeight: '600', color: dark.text, marginBottom: 2 },
-  optionTitleSelected: { color: BRAND.purple },
-  optionDesc: { fontSize: 12, color: dark.textTertiary },
+  fieldMultiline: { minHeight: 80, textAlignVertical: 'top' },
 
   // Save button
   saveBtn: {

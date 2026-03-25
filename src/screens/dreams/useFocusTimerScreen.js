@@ -5,7 +5,7 @@
 var { useState, useCallback, useRef, useEffect } = require('react');
 var { AppState } = require('react-native');
 var { useNavigation } = require('@react-navigation/native');
-var { useQuery, useMutation, useQueryClient } = require('@tanstack/react-query');
+var { useQuery, useQueryClient } = require('@tanstack/react-query');
 var { apiGet, apiPost } = require('../../services/api');
 var { DREAMS } = require('../../services/endpoints');
 
@@ -33,6 +33,7 @@ var useFocusTimerScreen = function () {
   var [selectedDreamId, setSelectedDreamId] = useState(null);
   var [selectedTaskId, setSelectedTaskId] = useState(null);
   var [showDreamPicker, setShowDreamPicker] = useState(false);
+  var [sessionId, setSessionId] = useState(null);
   var intervalRef = useRef(null);
   var startTimeRef = useRef(null);
 
@@ -123,23 +124,7 @@ var useFocusTimerScreen = function () {
     };
   }, [isRunning, isPaused]);
 
-  // ─── Mutations ──────────────────────────────────────────────
-
-  var startSessionMut = useMutation({
-    mutationFn: function (data) {
-      return apiPost(DREAMS.FOCUS.START, data);
-    },
-  });
-
-  var completeSessionMut = useMutation({
-    mutationFn: function (data) {
-      return apiPost(DREAMS.FOCUS.COMPLETE, data);
-    },
-    onSuccess: function () {
-      queryClient.invalidateQueries({ queryKey: ['focus-history'] });
-      queryClient.invalidateQueries({ queryKey: ['focus-stats'] });
-    },
-  });
+  // ─── Mutations removed — using direct apiPost calls matching web pattern ──
 
   // ─── Actions ────────────────────────────────────────────────
 
@@ -171,12 +156,16 @@ var useFocusTimerScreen = function () {
     setIsRunning(true);
     setIsPaused(false);
     startTimeRef.current = Date.now();
-    // Notify backend
-    startSessionMut.mutate({
-      dreamId: selectedDreamId,
-      taskId: selectedTaskId,
+    // Notify backend — camelCase keys auto-converted to snake_case by transform
+    apiPost(DREAMS.FOCUS.START, {
+      taskId: selectedTaskId || null,
       durationMinutes: customMinutes,
-    });
+      sessionType: 'work',
+    })
+      .then(function (data) {
+        setSessionId(data.id);
+      })
+      .catch(function () {});
   }, [timeLeft, selectedPreset, customMinutes, selectedDreamId, selectedTaskId]);
 
   var pauseTimer = useCallback(function () {
@@ -192,6 +181,7 @@ var useFocusTimerScreen = function () {
     setIsRunning(false);
     setIsPaused(false);
     setIsBreak(false);
+    setSessionId(null);
     var preset = PRESET_DURATIONS.find(function (p) { return p.key === selectedPreset; });
     setTimeLeft(preset ? preset.work : customMinutes * 60);
   }, [selectedPreset, customMinutes]);
@@ -203,30 +193,44 @@ var useFocusTimerScreen = function () {
     if (!isBreak) {
       // Work session completed
       var elapsed = startTimeRef.current ? Math.floor((Date.now() - startTimeRef.current) / 1000) : customMinutes * 60;
+      var elapsedMinutes = Math.floor(elapsed / 60);
       setSessionsCompleted(function (prev) { return prev + 1; });
       setTotalFocusTime(function (prev) { return prev + elapsed; });
 
-      // Notify backend
-      completeSessionMut.mutate({
-        dreamId: selectedDreamId,
-        taskId: selectedTaskId,
-        durationSeconds: elapsed,
-      });
+      // Notify backend — camelCase keys auto-converted to snake_case by transform
+      if (sessionId) {
+        apiPost(DREAMS.FOCUS.COMPLETE, {
+          sessionId: sessionId,
+          actualMinutes: elapsedMinutes,
+        })
+          .then(function () {
+            queryClient.invalidateQueries({ queryKey: ['focus-history'] });
+            queryClient.invalidateQueries({ queryKey: ['focus-stats'] });
+          })
+          .catch(function () {});
+      }
 
       // Start break
       var preset = PRESET_DURATIONS.find(function (p) { return p.key === selectedPreset; });
       var breakDuration = preset ? preset.breakTime : 5 * 60;
       setIsBreak(true);
       setTimeLeft(breakDuration);
+      setSessionId(null);
       // Auto-start break after 1 second
       setTimeout(function () {
         setIsRunning(true);
         setIsPaused(false);
         startTimeRef.current = Date.now();
+        apiPost(DREAMS.FOCUS.START, { durationMinutes: Math.floor(breakDuration / 60), sessionType: 'break' })
+          .then(function (data) {
+            setSessionId(data.id);
+          })
+          .catch(function () {});
       }, 1000);
     } else {
       // Break completed — reset for next work session
       setIsBreak(false);
+      setSessionId(null);
       var workPreset = PRESET_DURATIONS.find(function (p) { return p.key === selectedPreset; });
       setTimeLeft(workPreset ? workPreset.work : customMinutes * 60);
     }
@@ -246,7 +250,7 @@ var useFocusTimerScreen = function () {
     } catch (e) {
       // Notifee not available
     }
-  }, [isBreak, selectedPreset, customMinutes, selectedDreamId, selectedTaskId]);
+  }, [isBreak, selectedPreset, customMinutes, sessionId]);
 
   var formatTimer = useCallback(function (seconds) {
     var mins = Math.floor(seconds / 60);
@@ -280,6 +284,8 @@ var useFocusTimerScreen = function () {
     setSelectedTaskId: setSelectedTaskId,
     showDreamPicker: showDreamPicker,
     setShowDreamPicker: setShowDreamPicker,
+    // Session tracking
+    sessionId: sessionId,
     // Data
     history: history,
     stats: stats,

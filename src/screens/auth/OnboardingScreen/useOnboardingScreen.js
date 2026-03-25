@@ -115,17 +115,13 @@ var useOnboardingScreen = function () {
       return;
     }
     if (step === 4) {
-      // After notification step, go to subscription
+      // After notification step, go to personality quiz intro
       setStep(5);
       return;
     }
     if (step === 5) {
-      // Navigate to OnboardingSubscription screen
-      navigation.navigate('OnboardingSubscription', {
-        onComplete: function () {
-          handleFinishOnboarding();
-        },
-      });
+      // Navigate to PersonalityQuiz — matches web flow (onboarding -> quiz -> subscription)
+      navigation.navigate('PersonalityQuiz');
       return;
     }
   }, [step, displayName, avatarUri, selectedInterests, navigation, updateUser]);

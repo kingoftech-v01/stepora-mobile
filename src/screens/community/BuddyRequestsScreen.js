@@ -66,10 +66,10 @@ var BuddyRequestsScreen = function () {
 
   // Separate received vs sent pending requests
   var received = allRequests.filter(function (req) {
-    return req.status === 'pending' && req.direction === 'received';
+    return req.status === 'pending' && (req.direction === 'received' || req.direction === 'incoming');
   });
   var sent = allRequests.filter(function (req) {
-    return req.status === 'pending' && req.direction === 'sent';
+    return req.status === 'pending' && (req.direction === 'sent' || req.direction === 'outgoing');
   });
 
   var requests = activeTab === 'received' ? received : sent;
@@ -149,10 +149,10 @@ var BuddyRequestsScreen = function () {
 
   var renderReceivedCard = useCallback(function (info) {
     var req = info.item;
-    var user = req.fromUser || req.otherUser || req.user || {};
-    var userName = user.displayName || user.display_name || user.username || 'User';
+    var user = req.fromUser || req.from_user || req.otherUser || req.other_user || req.user || {};
+    var userName = user.displayName || user.display_name || user.username || req.name || req.displayName || req.display_name || req.buddyName || req.buddy_name || 'User';
     var message = req.message || req.note || '';
-    var time = req.createdAt || req.created_at || req.sentAt;
+    var time = req.createdAt || req.created_at || req.sentAt || req.sent_at;
     var isProcessing = acceptMut.isPending || rejectMut.isPending;
 
     return React.createElement(
@@ -247,9 +247,9 @@ var BuddyRequestsScreen = function () {
 
   var renderSentCard = useCallback(function (info) {
     var req = info.item;
-    var user = req.toUser || req.otherUser || req.user || {};
-    var userName = user.displayName || user.display_name || user.username || 'User';
-    var time = req.createdAt || req.created_at || req.sentAt;
+    var user = req.toUser || req.to_user || req.otherUser || req.other_user || req.user || {};
+    var userName = user.displayName || user.display_name || user.username || req.name || req.displayName || req.display_name || req.buddyName || req.buddy_name || 'User';
+    var time = req.createdAt || req.created_at || req.sentAt || req.sent_at;
 
     return React.createElement(
       GlassCard,

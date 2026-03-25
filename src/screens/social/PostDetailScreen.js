@@ -163,11 +163,11 @@ var PostDetailScreen = function () {
     if (inputRef.current) inputRef.current.focus();
   }, []);
 
-  var isLiked = post.isLiked || false;
-  var isSaved = post.isSaved || post.isBookmarked || false;
-  var isFollowing = post.isFollowing || (author && author.isFollowing) || false;
-  var likesCount = post.likesCount || post.likes_count || 0;
-  var commentsCount = post.commentsCount || post.comments_count || comments.length || 0;
+  var isLiked = post.isLiked || post.is_liked || post.hasLiked || post.has_liked || false;
+  var isSaved = post.isSaved || post.is_saved || post.isBookmarked || post.hasSaved || post.has_saved || false;
+  var isFollowing = post.isFollowing || post.is_following || (author && (author.isFollowing || author.is_following)) || false;
+  var likesCount = post.likesCount != null ? post.likesCount : (post.likes_count || 0);
+  var commentsCount = post.commentsCount != null ? post.commentsCount : (post.comments_count || comments.length || 0);
 
   // ── Render comment ──
   var renderComment = useCallback(function (info) {
@@ -210,7 +210,7 @@ var PostDetailScreen = function () {
               ' \u00B7 ' + formatRelativeTime(comment.createdAt || comment.created_at),
             ),
           ),
-          React.createElement(Text, { style: styles.commentText }, comment.content || comment.text || ''),
+          React.createElement(Text, { style: styles.commentText }, comment.content || comment.text || comment.body || ''),
           // Comment actions
           React.createElement(
             View,

@@ -1,12 +1,15 @@
 /**
  * useTimeBlockTemplatesScreen — Business logic for the Time Block Templates screen.
  * Fetches templates (preset + user), apply/delete/save mutations.
+ * Synced with web: toast/alert messages, formatTime12, sanitizeText.
  */
 var { useState, useEffect } = require('react');
 var { useNavigation } = require('@react-navigation/native');
 var { useQuery, useMutation, useQueryClient } = require('@tanstack/react-query');
+var { Alert } = require('react-native');
 var { apiGet, apiPost, apiDelete } = require('../../services/api');
 var { CALENDAR } = require('../../services/endpoints');
+var { sanitizeText } = require('../../utils/sanitize');
 var { BRAND } = require('../../styles/colors');
 
 var DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -18,6 +21,16 @@ var BLOCK_TYPE_META = {
   exercise: { label: 'Exercise', color: '#10B981', icon: 'activity' },
   blocked: { label: 'Blocked', color: '#6B7280', icon: 'lock' },
 };
+
+function formatTime12(timeStr) {
+  if (!timeStr) return '';
+  var parts = timeStr.split(':');
+  var h = parseInt(parts[0], 10);
+  var m = parts[1] || '00';
+  var ampm = h >= 12 ? 'PM' : 'AM';
+  var hour12 = h % 12 || 12;
+  return hour12 + ':' + m + ' ' + ampm;
+}
 
 var useTimeBlockTemplatesScreen = function () {
   var navigation = useNavigation();
@@ -54,29 +67,41 @@ var useTimeBlockTemplatesScreen = function () {
 
   var applyMut = useMutation({
     mutationFn: function (templateId) { return apiPost(CALENDAR.TEMPLATE_APPLY(templateId)); },
-    onSuccess: function () {
+    onSuccess: function (data) {
+      Alert.alert('Applied', (data && data.detail) || 'Template applied!');
       queryClient.invalidateQueries({ queryKey: ['time-blocks'] });
       queryClient.invalidateQueries({ queryKey: ['timeblock-templates'] });
       setShowApplyConfirm(null);
     },
-    onError: function () { setShowApplyConfirm(null); },
+    onError: function (err) {
+      Alert.alert('Error', err.userMessage || err.message || 'Failed to apply template.');
+      setShowApplyConfirm(null);
+    },
   });
 
   var saveMut = useMutation({
     mutationFn: function (payload) { return apiPost(CALENDAR.TEMPLATE_SAVE_CURRENT, payload); },
     onSuccess: function () {
+      Alert.alert('Saved', 'Template saved!');
       queryClient.invalidateQueries({ queryKey: ['timeblock-templates'] });
       closeSaveModal();
+    },
+    onError: function (err) {
+      Alert.alert('Error', err.userMessage || err.message || 'Failed to save template.');
     },
   });
 
   var deleteMut = useMutation({
     mutationFn: function (id) { return apiDelete(CALENDAR.TEMPLATE_DETAIL(id)); },
     onSuccess: function () {
+      Alert.alert('Deleted', 'Template deleted.');
       queryClient.invalidateQueries({ queryKey: ['timeblock-templates'] });
       setShowDeleteConfirm(null);
     },
-    onError: function () { setShowDeleteConfirm(null); },
+    onError: function (err) {
+      Alert.alert('Error', err.userMessage || err.message || 'Failed to delete template.');
+      setShowDeleteConfirm(null);
+    },
   });
 
   var closeSaveModal = function () {
@@ -86,11 +111,14 @@ var useTimeBlockTemplatesScreen = function () {
   };
 
   var handleSave = function () {
-    var cleanName = (saveName || '').trim().substring(0, 100);
-    if (!cleanName) return;
+    var cleanName = sanitizeText(saveName, 100);
+    if (!cleanName) {
+      Alert.alert('Validation', 'Please enter a name for the template.');
+      return;
+    }
     saveMut.mutate({
       name: cleanName,
-      description: (saveDescription || '').trim().substring(0, 500),
+      description: sanitizeText(saveDescription, 500) || '',
     });
   };
 
@@ -118,6 +146,7 @@ var useTimeBlockTemplatesScreen = function () {
     handleSave: handleSave,
     DAY_NAMES: DAY_NAMES,
     BLOCK_TYPE_META: BLOCK_TYPE_META,
+    formatTime12: formatTime12,
     BRAND: BRAND,
   };
 };

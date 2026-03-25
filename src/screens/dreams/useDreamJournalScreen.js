@@ -8,25 +8,21 @@ var { apiGet, apiPost, apiPatch, apiDelete } = require('../../services/api');
 var { DREAMS } = require('../../services/endpoints');
 
 var MOOD_OPTIONS = [
-  { key: 'amazing', emoji: '\uD83E\uDD29', label: 'Amazing' },
-  { key: 'happy', emoji: '\uD83D\uDE04', label: 'Happy' },
-  { key: 'good', emoji: '\uD83D\uDE42', label: 'Good' },
+  { key: 'excited', emoji: '\uD83E\uDD29', label: 'Excited' },
+  { key: 'happy', emoji: '\uD83D\uDE0A', label: 'Happy' },
   { key: 'neutral', emoji: '\uD83D\uDE10', label: 'Neutral' },
-  { key: 'sad', emoji: '\uD83D\uDE14', label: 'Sad' },
   { key: 'frustrated', emoji: '\uD83D\uDE24', label: 'Frustrated' },
-  { key: 'anxious', emoji: '\uD83D\uDE30', label: 'Anxious' },
-  { key: 'tired', emoji: '\uD83D\uDE34', label: 'Tired' },
+  { key: 'motivated', emoji: '\uD83D\uDCAA', label: 'Motivated' },
+  { key: 'reflective', emoji: '\uD83E\uDD14', label: 'Reflective' },
 ];
 
 var MOOD_COLORS = {
-  amazing: '#EC4899',
+  excited: '#EC4899',
   happy: '#22C55E',
-  good: '#14B8A6',
   neutral: '#6366F1',
-  sad: '#3B82F6',
   frustrated: '#EF4444',
-  anxious: '#F59E0B',
-  tired: '#9CA3AF',
+  motivated: '#F59E0B',
+  reflective: '#3B82F6',
 };
 
 var useDreamJournalScreen = function () {
@@ -83,7 +79,7 @@ var useDreamJournalScreen = function () {
     mutationFn: function (data) {
       return apiPatch(DREAMS.JOURNAL.DETAIL(data.id), {
         mood: data.mood,
-        text: data.text,
+        content: data.content,
       });
     },
     onSuccess: function () {
@@ -121,7 +117,7 @@ var useDreamJournalScreen = function () {
   var openEditEntry = useCallback(function (entry) {
     setEditingId(entry.id);
     setFormMood(entry.mood || '');
-    setFormText(entry.text || entry.content || '');
+    setFormText(entry.content || entry.text || '');
     setShowForm(true);
   }, []);
 
@@ -129,10 +125,10 @@ var useDreamJournalScreen = function () {
     if (!formText.trim() && !formMood) return;
     var payload = {
       mood: formMood || 'neutral',
-      text: formText.trim(),
+      content: formText.trim(),
     };
     if (editingId) {
-      updateMut.mutate({ id: editingId, mood: payload.mood, text: payload.text });
+      updateMut.mutate({ id: editingId, mood: payload.mood, content: payload.content });
     } else {
       createMut.mutate(payload);
     }

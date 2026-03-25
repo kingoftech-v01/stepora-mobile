@@ -52,24 +52,42 @@ var FriendRequestsScreen = function () {
 
   var normalizeReceived = function (r) {
     var s = r.sender || {};
-    var name = s.displayName || s.display_name || s.username || r.name || 'User';
+    var sName =
+      s.displayName ||
+      s.display_name ||
+      s.username ||
+      r.name ||
+      r.displayName ||
+      r.display_name ||
+      r.username ||
+      'User';
     return Object.assign({}, r, {
-      name: name,
-      initial: name[0].toUpperCase(),
+      name: sName,
+      initial: sName[0].toUpperCase(),
       level: s.level || r.level || 1,
-      avatarUrl: s.avatarUrl || r.avatarUrl || '',
-      mutualFriends: r.mutualFriends || 0,
+      avatarUrl: s.avatarUrl || s.avatar_url || r.avatarUrl || '',
+      mutualFriends: r.mutualFriends || r.mutual_friends || 0,
+      time: r.time || r.createdAt || r.created_at || '',
     });
   };
 
   var normalizeSent = function (r) {
     var recv = r.receiver || r.sender || {};
-    var name = recv.displayName || recv.display_name || recv.username || r.name || 'User';
+    var rName =
+      recv.displayName ||
+      recv.display_name ||
+      recv.username ||
+      r.name ||
+      r.displayName ||
+      r.display_name ||
+      r.username ||
+      'User';
     return Object.assign({}, r, {
-      name: name,
-      initial: name[0].toUpperCase(),
+      name: rName,
+      initial: rName[0].toUpperCase(),
       level: recv.level || r.level || 1,
-      avatarUrl: recv.avatarUrl || r.avatarUrl || '',
+      avatarUrl: recv.avatarUrl || recv.avatar_url || r.avatarUrl || '',
+      time: r.time || r.createdAt || r.created_at || '',
     });
   };
 

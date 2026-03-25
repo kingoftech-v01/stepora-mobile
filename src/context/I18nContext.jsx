@@ -116,7 +116,7 @@ export function I18nProvider({ children }) {
   var isRTL = RTL_LANGUAGES.indexOf(locale) !== -1;
 
   return (
-    <I18nContext.Provider value={{ t: t, locale: locale, setLocale: setLocale, isRTL: isRTL }}>
+    <I18nContext.Provider value={{ t: t, locale: locale, setLocale: setLocale, isRTL: isRTL, i18nLoading: false }}>
       {children}
     </I18nContext.Provider>
   );

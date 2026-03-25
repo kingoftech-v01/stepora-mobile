@@ -91,7 +91,7 @@ var DreamJournalScreen = function () {
     var mood = h.MOOD_OPTIONS.find(function (m) { return m.key === entry.mood; });
     var moodEmoji = mood ? mood.emoji : '\uD83D\uDE42';
     var moodColor = h.MOOD_COLORS[entry.mood] || COLORS.accent;
-    var textPreview = entry.text || entry.content || '';
+    var textPreview = entry.content || entry.text || '';
     var time = h.formatTime(entry.createdAt || entry.date);
     var imageUrl = entry.image || entry.imageUrl;
 

@@ -1,14 +1,18 @@
 /**
  * useSettingsScreen -- business logic for Settings (React Native).
- * Adapted from the web app's useSettingsScreen.js.
+ * Synced with web app's useSettingsScreen.js.
  */
 var { useState, useEffect } = require('react');
 var { useNavigation } = require('@react-navigation/native');
 var AsyncStorage = require('@react-native-async-storage/async-storage').default;
-var { apiGet, apiPut, apiPost, apiDelete, clearAuth } = require('../../../services/api');
+var { apiGet, apiPut, apiPost, apiDelete } = require('../../../services/api');
 var { USERS } = require('../../../services/endpoints');
 var { isValidEmail, sanitizeText } = require('../../../utils/sanitize');
 var { BRAND, adaptColor } = require('../../../styles/colors');
+var { useAuth } = require('../../../context/AuthContext');
+var { useToast } = require('../../../context/ToastContext');
+var { useT } = require('../../../context/I18nContext');
+var { useTheme } = require('../../../context/ThemeContext');
 
 var LANGUAGES = [
   { code: 'en', label: 'English' },
@@ -57,13 +61,13 @@ var TIMEZONES = [
 
 function useSettingsScreen() {
   var navigation = useNavigation();
-  var t = function (key) { return key; };
-
-  // Placeholder user - in production, would come from AuthContext
-  var user = { displayName: 'User', email: 'user@stepora.app', subscription: 'free', timezone: 'America/Toronto' };
+  var { user, logout } = useAuth();
+  var { showToast } = useToast();
+  var { t, locale, setLocale: setContextLocale } = useT();
+  var { theme, setTheme, resolved } = useTheme();
+  var isLight = resolved === 'light';
 
   var [mounted, setMounted] = useState(false);
-  var [locale, setLocale] = useState('en');
   var [notifs, setNotifs] = useState({ push: true, email: true, buddy: true, streak: true });
   var [dndEnabled, setDndEnabled] = useState(false);
   var [dndStart, setDndStart] = useState('22:00');
@@ -86,11 +90,6 @@ function useSettingsScreen() {
 
   useEffect(function () {
     setTimeout(function () { setMounted(true); }, 100);
-
-    // Load saved locale
-    AsyncStorage.getItem('dp-locale').then(function (val) {
-      if (val) setLocale(val);
-    }).catch(function () {});
 
     // Load saved timezone
     AsyncStorage.getItem('dp-timezone').then(function (val) {
@@ -131,7 +130,7 @@ function useSettingsScreen() {
   });
 
   var handleSetLocale = function (code) {
-    setLocale(code);
+    if (setContextLocale) setContextLocale(code);
     AsyncStorage.setItem('dp-locale', code).catch(function () {});
     setShowLang(false);
   };
@@ -139,7 +138,9 @@ function useSettingsScreen() {
   var handleSetTz = function (value) {
     setTz(value);
     AsyncStorage.setItem('dp-timezone', value).catch(function () {});
-    apiPut(USERS.UPDATE_PROFILE, { timezone: value }).catch(function () {});
+    apiPut(USERS.UPDATE_PROFILE, { timezone: value }).catch(function (err) {
+      showToast(err.userMessage || err.message || t('errors.generic'), 'error');
+    });
     setShowTz(false);
     setTzSearch('');
   };
@@ -156,8 +157,10 @@ function useSettingsScreen() {
       streakReminders: next.streak,
     }).then(function () {
       setSavingNotifs(false);
-    }).catch(function () {
+      showToast(t('settings.preferencesSaved'), 'success');
+    }).catch(function (err) {
       setSavingNotifs(false);
+      showToast(err.userMessage || err.message || t('error.failedSavePreferences'), 'error');
     });
   };
 
@@ -176,17 +179,28 @@ function useSettingsScreen() {
   };
 
   var handleSignOut = function () {
-    clearAuth().then(function () {
-      navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
-    }).catch(function () {
-      navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
-    });
+    logout()
+      .then(function () {
+        showToast(t('profile.signedOut'), 'success');
+      })
+      .catch(function () {
+        showToast(t('profile.signOutFailed'), 'error');
+      });
   };
 
   var handleChangeEmail = function () {
-    if (!newEmail || !isValidEmail(newEmail)) return;
-    if (!emailPassword) return;
-    if (is2faEnabled && !emailTotpCode) return;
+    if (!newEmail || !isValidEmail(newEmail)) {
+      showToast(t('settings.invalidEmail'), 'error');
+      return;
+    }
+    if (!emailPassword) {
+      showToast(t('settings.passwordRequired'), 'error');
+      return;
+    }
+    if (is2faEnabled && !emailTotpCode) {
+      showToast(t('settings.totpRequired'), 'error');
+      return;
+    }
 
     var body = { newEmail: sanitizeText(newEmail, 254), password: emailPassword };
     if (is2faEnabled && emailTotpCode) body.totpCode = emailTotpCode;
@@ -195,13 +209,15 @@ function useSettingsScreen() {
     apiPost(USERS.CHANGE_EMAIL, body)
       .then(function () {
         setSavingEmail(false);
+        showToast(t('settings.emailChanged'), 'success');
         setShowEmailChange(false);
         setNewEmail('');
         setEmailPassword('');
         setEmailTotpCode('');
       })
-      .catch(function () {
+      .catch(function (err) {
         setSavingEmail(false);
+        showToast(err.userMessage || err.message || t('error.failedChangeEmail'), 'error');
       });
   };
 
@@ -213,13 +229,13 @@ function useSettingsScreen() {
     apiDelete(USERS.DELETE_ACCOUNT, { body: { password: deletePassword, confirmation: deleteText } })
       .then(function () {
         setDeletingAccount(false);
+        showToast(t('settings.accountDeleted'), 'info');
         setShowDelete(false);
-        clearAuth().then(function () {
-          navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
-        });
+        logout();
       })
-      .catch(function () {
+      .catch(function (err) {
         setDeletingAccount(false);
+        showToast(err.userMessage || err.message || t('error.failedDeleteAccount'), 'error');
       });
   };
 
@@ -228,6 +244,9 @@ function useSettingsScreen() {
     t: t,
     user: user,
     mounted: mounted,
+    isLight: isLight,
+    theme: theme,
+    setTheme: setTheme,
     locale: locale,
     setLocale: handleSetLocale,
     notifs: notifs,

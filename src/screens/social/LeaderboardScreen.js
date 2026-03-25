@@ -25,6 +25,7 @@ var Avatar = require('../../components/shared/Avatar');
 var Icon = require('react-native-vector-icons/Feather').default;
 var OnboardingTooltip = require('../../components/OnboardingTooltip');
 var { getTooltipConfig } = require('../../config/onboardingTooltips');
+var { useAuth } = require('../../context/AuthContext');
 var { COLORS, SPACING, RADIUS, CONTACT_COLORS } = require('../../theme/tokens');
 
 var TIME_FILTERS = [
@@ -55,6 +56,7 @@ var getAvatarColor = function (name) {
 
 var LeaderboardScreen = function () {
   var navigation = useNavigation();
+  var { user } = useAuth();
   var [timeFilter, setTimeFilter] = useState('weekly');
   var [scopeFilter, setScopeFilter] = useState('global');
   var headerRef = React.useRef(null);
@@ -82,15 +84,23 @@ var LeaderboardScreen = function () {
 
   var entries = lbInf.items.map(function (entry, i) {
     if (!entry) return null;
-    var name = entry.userDisplayName || entry.user_display_name || entry.name || entry.displayName || 'User';
+    var entryName =
+      entry.userDisplayName ||
+      entry.user_display_name ||
+      entry.name ||
+      entry.displayName ||
+      entry.display_name ||
+      'User';
     return Object.assign({}, entry, {
-      name: name,
-      initial: name[0].toUpperCase(),
+      name: entryName,
+      initial: entry.initial || entryName[0].toUpperCase(),
       rank: entry.rank || i + 1,
       xp: entry.xp || 0,
       level: entry.userLevel || entry.level || 1,
       streak: entry.streak || 0,
-      isUser: entry.isCurrentUser || false,
+      isUser:
+        entry.isCurrentUser ||
+        String(entry.userId || entry.user_id || entry.id) === String(user && user.id),
     });
   }).filter(Boolean);
 

@@ -1,12 +1,13 @@
 /**
  * useRegisterScreen -- shared business logic for Register (React Native).
  * Adapted from the web app's useRegisterScreen.js.
+ * Uses AuthContext.register for consistent auth flow (same as web).
  */
 var { useState } = require('react');
 var { useNavigation } = require('@react-navigation/native');
-var { apiPost, setTokens } = require('../../../services/api');
-var { AUTH } = require('../../../services/endpoints');
 var { isValidEmail, sanitizeText } = require('../../../utils/sanitize');
+var { useAuth } = require('../../../context/AuthContext');
+var Config = require('../../../config').default || {};
 
 function getPasswordStrength(password) {
   if (!password) return { level: 0, key: '', color: 'transparent' };
@@ -23,6 +24,7 @@ function getPasswordStrength(password) {
 
 function useRegisterScreen() {
   var navigation = useNavigation();
+  var { register, socialLogin } = useAuth();
   var t = function (key) { return key; };
   var [displayName, setDisplayName] = useState('');
   var [email, setEmail] = useState('');
@@ -49,19 +51,15 @@ function useRegisterScreen() {
     if (Object.keys(errs).length > 0) return;
 
     setSubmitting(true);
-    apiPost(AUTH.REGISTER, {
-      email: email,
-      password1: password,
-      password2: confirmPassword,
-      displayName: sanitizeText(displayName, 50),
-    })
+    register(email, password, confirmPassword, sanitizeText(displayName, 50))
       .then(function (data) {
-        if (data && data.access) {
-          return setTokens(data.access, data.refresh).then(function () {
-            navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
-          });
+        // If email verification is required, navigate to CheckEmail
+        if (data && data.emailVerificationRequired) {
+          navigation.navigate('CheckEmail', { email: email });
+        } else {
+          // Registration succeeded with auto-login — go to onboarding
+          navigation.reset({ index: 0, routes: [{ name: 'Onboarding' }] });
         }
-        navigation.navigate('CheckEmail', { email: email });
       })
       .catch(function (err) {
         if (err.fieldErrors) setErrors(err.fieldErrors);
@@ -81,12 +79,18 @@ function useRegisterScreen() {
   };
 
   var handleGoogleLogin = function () {
-    setServerError('Google sign-up not yet configured for native.');
+    // TODO: Implement native Google Sign-In (react-native-google-signin)
+    setServerError(t('auth.googleNotConfigured'));
   };
 
   var handleAppleLogin = function () {
-    setServerError('Apple sign-up not yet configured for native.');
+    // TODO: Implement native Apple Sign-In (@invertase/react-native-apple-authentication)
+    setServerError(t('auth.appleNotConfigured'));
   };
+
+  // Feature flags — hide social buttons when not configured
+  var googleConfigured = !!(Config.GOOGLE_CLIENT_ID && Config.USE_GOOGLE_AUTH === 'true');
+  var appleConfigured = !!Config.APPLE_CLIENT_ID;
 
   return {
     navigation: navigation,
@@ -112,6 +116,8 @@ function useRegisterScreen() {
     handleRegister: handleRegister,
     handleGoogleLogin: handleGoogleLogin,
     handleAppleLogin: handleAppleLogin,
+    googleConfigured: googleConfigured,
+    appleConfigured: appleConfigured,
   };
 }
 

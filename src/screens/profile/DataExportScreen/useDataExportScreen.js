@@ -1,158 +1,93 @@
 /**
  * useDataExportScreen -- business logic for GDPR data export (React Native).
+ * Synced with web app's useDataExportScreen.js.
  */
 var { useState, useEffect, useCallback } = require('react');
 var { useNavigation } = require('@react-navigation/native');
-var { Linking, Alert } = require('react-native');
-var { apiGet, apiPost } = require('../../../services/api');
+var { Linking, Alert, Share } = require('react-native');
+var { apiGet } = require('../../../services/api');
 var { USERS } = require('../../../services/endpoints');
+var { useToast } = require('../../../context/ToastContext');
+var { useT } = require('../../../context/I18nContext');
+
+var EXPORT_FORMATS = [
+  { id: 'json', label: 'JSON', desc: 'Complete structured data in JSON format', color: '#8B5CF6' },
+  { id: 'csv', label: 'CSV', desc: 'Spreadsheet-compatible CSV format', color: '#10B981' },
+];
+
+var DATA_CATEGORIES = [
+  { key: 'dreams', label: 'Dreams & Goals', desc: 'All dreams, goals, tasks, milestones, and progress' },
+  { key: 'profile', label: 'Profile & Settings', desc: 'Name, email, avatar, bio, timezone, preferences' },
+  { key: 'activity', label: 'Activity History', desc: 'Streaks, XP, achievements, and interaction logs' },
+];
 
 function useDataExportScreen() {
   var navigation = useNavigation();
-
-  var [loading, setLoading] = useState(true);
-  var [exports, setExports] = useState([]);
-  var [requesting, setRequesting] = useState(false);
-  var [error, setError] = useState('');
-  var [successMsg, setSuccessMsg] = useState('');
-
-  // ─── Data categories included in export ───────────────────
-  var DATA_CATEGORIES = [
-    { key: 'profile', label: 'Profile Information', desc: 'Name, email, avatar, bio, timezone' },
-    { key: 'dreams', label: 'Dreams & Goals', desc: 'All dreams, goals, tasks, milestones, and progress' },
-    { key: 'conversations', label: 'AI Conversations', desc: 'Chat history with your AI coach' },
-    { key: 'calendar', label: 'Calendar & Habits', desc: 'Events, time blocks, and habit tracking data' },
-    { key: 'social', label: 'Social Activity', desc: 'Friends, circles, posts, and interactions' },
-    { key: 'subscription', label: 'Subscription & Payments', desc: 'Plan history and billing records' },
-    { key: 'achievements', label: 'Achievements & XP', desc: 'Badges, levels, streaks, and gamification data' },
-  ];
-
-  // ─── Fetch export history ─────────────────────────────────
-  var fetchExports = useCallback(function () {
-    setLoading(true);
-    setError('');
-    apiGet(USERS.EXPORT_DATA)
-      .then(function (data) {
-        var list = [];
-        if (Array.isArray(data)) {
-          list = data;
-        } else if (data && Array.isArray(data.exports)) {
-          list = data.exports;
-        } else if (data && Array.isArray(data.results)) {
-          list = data.results;
-        }
-        setExports(list);
-        setLoading(false);
-      })
-      .catch(function (err) {
-        // If the endpoint only supports POST (no GET), just set empty list
-        if (err.status === 405 || err.status === 404) {
-          setExports([]);
-          setLoading(false);
-        } else {
-          setError(err.message || 'Failed to load export history');
-          setLoading(false);
-        }
-      });
-  }, []);
+  var { showToast } = useToast();
+  var { t } = useT();
+  var [mounted, setMounted] = useState(false);
+  var [selectedFormat, setSelectedFormat] = useState('json');
+  var [isExporting, setIsExporting] = useState(false);
+  var [exportProgress, setExportProgress] = useState(0);
+  var [exportDone, setExportDone] = useState(false);
 
   useEffect(function () {
-    fetchExports();
-  }, [fetchExports]);
+    var timer = setTimeout(function () {
+      setMounted(true);
+    }, 50);
+    return function () { clearTimeout(timer); };
+  }, []);
 
-  // ─── Request new data export ──────────────────────────────
-  var handleRequestExport = function () {
-    Alert.alert(
-      'Request Data Export',
-      'We will prepare a downloadable file with all your data. This may take a few minutes.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Request',
-          onPress: function () {
-            setRequesting(true);
-            setError('');
-            setSuccessMsg('');
-            apiPost(USERS.EXPORT_DATA)
-              .then(function (data) {
-                setRequesting(false);
-                setSuccessMsg('Export requested! You will be notified when it is ready.');
-                // Add the new export to the list if returned
-                if (data && data.id) {
-                  setExports(function (prev) { return [data].concat(prev); });
-                } else {
-                  // Refresh list
-                  fetchExports();
-                }
-              })
-              .catch(function (err) {
-                setRequesting(false);
-                setError(err.message || 'Failed to request export');
-              });
-          },
-        },
-      ]
-    );
-  };
+  var handleExport = function () {
+    if (isExporting) return;
+    setIsExporting(true);
+    setExportProgress(0);
+    setExportDone(false);
 
-  // ─── Download an export ───────────────────────────────────
-  var handleDownload = function (exportItem) {
-    var url = exportItem.downloadUrl || exportItem.url || exportItem.fileUrl;
-    if (url) {
-      Linking.openURL(url).catch(function () {
-        Alert.alert('Error', 'Could not open download link.');
+    apiGet(USERS.EXPORT_DATA + '?format=' + selectedFormat)
+      .then(function (data) {
+        setExportProgress(100);
+        setExportDone(true);
+        showToast(t('export.exportSuccess') || 'Export completed successfully!', 'success');
+
+        // On mobile, try to share the data
+        if (data) {
+          var content = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+          Share.share({
+            message: content,
+            title: 'Stepora Data Export',
+          }).catch(function () {});
+        }
+
+        setTimeout(function () {
+          setIsExporting(false);
+          setExportProgress(0);
+          setExportDone(false);
+        }, 3000);
+      })
+      .catch(function (err) {
+        setIsExporting(false);
+        setExportProgress(0);
+        if (err.status === 429) {
+          showToast(t('export.limitReached') || 'Export limit reached. Please try again later.', 'error');
+        } else {
+          showToast(err.userMessage || err.message || t('export.failedExport') || 'Failed to export data', 'error');
+        }
       });
-    } else {
-      Alert.alert('Not Available', 'Download link is not available yet.');
-    }
-  };
-
-  // ─── Status helpers ───────────────────────────────────────
-  var getStatusLabel = function (status) {
-    if (!status) return 'Unknown';
-    var s = status.toLowerCase();
-    if (s === 'ready' || s === 'completed' || s === 'complete') return 'Ready';
-    if (s === 'pending' || s === 'processing' || s === 'in_progress') return 'Processing';
-    if (s === 'expired') return 'Expired';
-    if (s === 'failed' || s === 'error') return 'Failed';
-    return status;
-  };
-
-  var getStatusColor = function (status) {
-    if (!status) return '#707080';
-    var s = status.toLowerCase();
-    if (s === 'ready' || s === 'completed' || s === 'complete') return '#5DE5A8';
-    if (s === 'pending' || s === 'processing' || s === 'in_progress') return '#FCD34D';
-    if (s === 'expired') return '#707080';
-    if (s === 'failed' || s === 'error') return '#EF4444';
-    return '#707080';
-  };
-
-  var formatDate = function (dateStr) {
-    if (!dateStr) return '';
-    try {
-      var d = new Date(dateStr);
-      return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-    } catch (e) {
-      return dateStr;
-    }
   };
 
   return {
     navigation: navigation,
-    loading: loading,
-    exports: exports,
-    requesting: requesting,
-    error: error,
-    successMsg: successMsg,
-    setSuccessMsg: setSuccessMsg,
+    t: t,
+    mounted: mounted,
+    selectedFormat: selectedFormat,
+    setSelectedFormat: setSelectedFormat,
+    isExporting: isExporting,
+    exportProgress: exportProgress,
+    exportDone: exportDone,
+    handleExport: handleExport,
+    EXPORT_FORMATS: EXPORT_FORMATS,
     DATA_CATEGORIES: DATA_CATEGORIES,
-    fetchExports: fetchExports,
-    handleRequestExport: handleRequestExport,
-    handleDownload: handleDownload,
-    getStatusLabel: getStatusLabel,
-    getStatusColor: getStatusColor,
-    formatDate: formatDate,
   };
 }
 

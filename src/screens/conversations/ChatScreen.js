@@ -1,7 +1,8 @@
 /**
- * ChatScreen — Individual chat with messages.
- * Uses FlatList (inverted) + KeyboardAvoidingView for input.
- * Real-time messages via WebSocket.
+ * ChatScreen — Friend-to-friend chat (1:1).
+ * Uses FRIEND_CHAT endpoints. Resolves friend info from conversation or /start/.
+ * Uses friend's display_name from user profile, NOT from buddy pairing.
+ * Synced with web: useFriendChatScreen.js pattern.
  */
 var React = require('react');
 var { useState, useCallback, useEffect, useRef } = React;
@@ -19,95 +20,245 @@ var {
 var { useNavigation, useRoute } = require('@react-navigation/native');
 var { useQuery, useQueryClient } = require('@tanstack/react-query');
 var { apiGet, apiPost } = require('../../services/api');
-var { CONVERSATIONS, WS } = require('../../services/endpoints');
-var useChatSocket = require('../../hooks/useChatSocket');
+var { FRIEND_CHAT, USERS } = require('../../services/endpoints');
 var ScreenShell = require('../../components/shared/ScreenShell');
 var GlassHeader = require('../../components/shared/GlassHeader');
 var Avatar = require('../../components/shared/Avatar');
 var Icon = require('react-native-vector-icons/Feather').default;
 var { COLORS, SPACING, RADIUS, CONTACT_COLORS } = require('../../theme/tokens');
-var { getAccessToken } = require('../../services/api');
-var AdBanner = require('../../components/AdBanner');
-
-var avatarColor = function (name) {
-  var h = 0;
-  for (var i = 0; i < (name || '').length; i++) {
-    h = (name.charCodeAt(i) + ((h << 5) - h)) | 0;
-  }
-  return CONTACT_COLORS[Math.abs(h) % CONTACT_COLORS.length];
-};
 
 var formatTime = function (dateStr) {
   if (!dateStr) return '';
-  var d = new Date(dateStr);
+  var d = typeof dateStr === 'object' ? dateStr : new Date(dateStr);
   var hours = d.getHours();
   var mins = d.getMinutes();
   return (hours < 10 ? '0' : '') + hours + ':' + (mins < 10 ? '0' : '') + mins;
 };
 
+var formatDateLabel = function (dateStr) {
+  var d = typeof dateStr === 'object' ? dateStr : new Date(dateStr);
+  var now = new Date();
+  var today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  var msgDay = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  var diff = Math.floor((today - msgDay) / 86400000);
+  if (diff === 0) return 'Today';
+  if (diff === 1) return 'Yesterday';
+  if (diff < 7) return d.toLocaleDateString(undefined, { weekday: 'long' });
+  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+};
+
+var shouldShowDate = function (messages, index) {
+  if (index === messages.length - 1) return true;
+  var current = new Date(messages[index].time);
+  var next = new Date(messages[index + 1].time);
+  return current.toDateString() !== next.toDateString();
+};
+
+var PAGE_SIZE = 50;
+
 var ChatScreen = function () {
   var navigation = useNavigation();
   var route = useRoute();
-  var conversationId = route.params && route.params.conversationId;
-  var chatTitle = (route.params && route.params.title) || 'Chat';
   var queryClient = useQueryClient();
+
+  // Route params: can receive conversationId (existing conv) or friendId (start new)
+  var paramConvId = route.params && route.params.conversationId;
+  var paramFriendId = route.params && route.params.friendId;
+  var chatTitle = (route.params && route.params.title) || 'Chat';
+
+  // State for resolved conversation + friend info
+  var [convId, setConvId] = useState(paramConvId || null);
+  var [friendInfo, setFriendInfo] = useState(null);
+  var [initLoading, setInitLoading] = useState(true);
+  var [initError, setInitError] = useState(null);
+
   var [inputText, setInputText] = useState('');
   var [sending, setSending] = useState(false);
-  var [localMessages, setLocalMessages] = useState([]);
+  var [messages, setMessages] = useState([]);
+  var [hasMore, setHasMore] = useState(false);
+  var [loadingMore, setLoadingMore] = useState(false);
+  var [nextOffset, setNextOffset] = useState(0);
   var flatListRef = useRef(null);
-  var token = getAccessToken();
+
+  // Resolve conversation: try DETAIL first, then START
+  var id = paramConvId || paramFriendId;
+  useEffect(
+    function () {
+      if (!id || id === 'undefined') {
+        setInitError('No friend selected');
+        setInitLoading(false);
+        return;
+      }
+      var cancelled = false;
+      setInitLoading(true);
+      setInitError(null);
+
+      // Step 1: If we have a conversationId, fetch conversation detail
+      if (paramConvId) {
+        apiGet(FRIEND_CHAT.DETAIL(paramConvId))
+          .then(function (conv) {
+            if (cancelled) return;
+            setConvId(conv.id);
+            var tu = conv.targetUser || conv.target_user;
+            if (tu) {
+              setFriendInfo({
+                id: tu.id,
+                displayName: tu.displayName || tu.display_name || 'Unknown',
+                avatar: tu.avatar || tu.avatarUrl || '',
+              });
+            }
+            setInitLoading(false);
+          })
+          .catch(function () {
+            if (cancelled) return;
+            // If DETAIL fails, try START with this ID as user ID
+            apiPost(FRIEND_CHAT.START, { targetUserId: paramConvId })
+              .then(function (conv) {
+                if (cancelled) return;
+                setConvId(conv.id);
+                var tu = conv.targetUser || conv.target_user;
+                if (tu) {
+                  setFriendInfo({
+                    id: tu.id,
+                    displayName: tu.displayName || tu.display_name || 'Unknown',
+                    avatar: tu.avatar || tu.avatarUrl || '',
+                  });
+                }
+                setInitLoading(false);
+              })
+              .catch(function (err) {
+                if (cancelled) return;
+                setInitError('Could not load conversation');
+                setInitLoading(false);
+              });
+          });
+      } else if (paramFriendId) {
+        // Step 2: Start or get conversation with friend
+        apiPost(FRIEND_CHAT.START, { targetUserId: paramFriendId })
+          .then(function (conv) {
+            if (cancelled) return;
+            setConvId(conv.id);
+            var tu = conv.targetUser || conv.target_user;
+            if (tu) {
+              setFriendInfo({
+                id: tu.id,
+                displayName: tu.displayName || tu.display_name || 'Unknown',
+                avatar: tu.avatar || tu.avatarUrl || '',
+              });
+            } else {
+              // Fetch user profile as last resort
+              apiGet(USERS.PROFILE(paramFriendId))
+                .then(function (u) {
+                  if (cancelled) return;
+                  setFriendInfo({
+                    id: u.id,
+                    displayName: u.displayName || u.display_name || 'Unknown',
+                    avatar: u.avatar || u.avatarUrl || '',
+                  });
+                })
+                .catch(function () {});
+            }
+            setInitLoading(false);
+          })
+          .catch(function (err) {
+            if (cancelled) return;
+            setFriendInfo({ id: paramFriendId, displayName: chatTitle });
+            setInitError('Could not start conversation');
+            setInitLoading(false);
+          });
+      }
+
+      return function () {
+        cancelled = true;
+      };
+    },
+    [paramConvId, paramFriendId],
+  );
+
+  var friendName = (friendInfo && friendInfo.displayName) || chatTitle;
+
+  // Map API message to internal format
+  var mapMsg = function (m) {
+    var sid = m.senderId || (m.metadata && (m.metadata.senderId || m.metadata.sender_id)) || '';
+    var role = m.role || '';
+    if (role === 'system' && !(m.content || m.text)) return null;
+    return {
+      id: String(m.id),
+      content: m.content || m.text || '',
+      isUser: String(sid) === String(route.params && route.params.userId) || m.isUser || false,
+      time: m.createdAt || m.created_at || m.time || new Date().toISOString(),
+      pinned: !!(m.pinned || m.isPinned || m.is_pinned),
+      read: m.read !== false,
+      audioUrl: m.audioUrl || m.audio_url || '',
+      audioDuration: m.audioDuration || m.audio_duration || null,
+    };
+  };
 
   // Fetch messages
   var messagesQuery = useQuery({
-    queryKey: ['chat-messages', conversationId],
+    queryKey: ['friend-messages', convId],
     queryFn: function () {
-      return apiGet(CONVERSATIONS.MESSAGES(conversationId));
+      return apiGet(FRIEND_CHAT.MESSAGES(convId) + '?limit=' + PAGE_SIZE);
     },
-    enabled: !!conversationId,
-    refetchInterval: 15000,
+    enabled: !!convId && !initLoading,
+    refetchInterval: 10000,
   });
 
-  var serverMessages = (function () {
-    var data = messagesQuery.data;
-    var list = (data && data.results) || data || [];
-    if (!Array.isArray(list)) return [];
-    return list;
-  })();
-
-  // Merge server + local optimistic messages
-  var allMessages = serverMessages.concat(localMessages);
-
-  // WebSocket for real-time messages
-  var wsPath = conversationId ? WS.AI_CHAT(conversationId) : null;
-  var chat = useChatSocket(wsPath, token, {
-    onMessage: function (data) {
-      if (data && data.message) {
-        // Invalidate to get fresh data
-        queryClient.invalidateQueries({ queryKey: ['chat-messages', conversationId] });
-        // Remove optimistic message if it matches
-        setLocalMessages(function (prev) {
-          return prev.filter(function (m) {
-            return m.content !== data.message.content;
-          });
-        });
+  // Sync messages from query
+  useEffect(
+    function () {
+      if (messagesQuery.data) {
+        var raw = messagesQuery.data;
+        var list = raw.results || raw || [];
+        setMessages(list.map(mapMsg).filter(Boolean));
+        setNextOffset(list.length);
+        setHasMore(!!raw.next);
       }
     },
-  });
+    [messagesQuery.data],
+  );
 
   // Mark as read on mount
   useEffect(
     function () {
-      if (conversationId) {
-        apiPost(CONVERSATIONS.MARK_READ(conversationId)).catch(function () {});
+      if (convId && !initLoading) {
+        apiPost(FRIEND_CHAT.MARK_READ(convId)).catch(function () {});
+        queryClient.invalidateQueries({ queryKey: ['friend-conversations'] });
       }
     },
-    [conversationId],
+    [convId, initLoading],
+  );
+
+  // Load older messages
+  var loadOlder = useCallback(
+    function () {
+      if (loadingMore || !hasMore || !convId) return;
+      setLoadingMore(true);
+      apiGet(FRIEND_CHAT.MESSAGES(convId) + '?limit=' + PAGE_SIZE + '&offset=' + nextOffset)
+        .then(function (raw) {
+          var list = raw.results || raw || [];
+          if (list.length > 0) {
+            setMessages(function (prev) {
+              return list.map(mapMsg).filter(Boolean).concat(prev);
+            });
+            setNextOffset(function (prev) {
+              return prev + list.length;
+            });
+          }
+          setHasMore(!!raw.next);
+        })
+        .catch(function () {})
+        .finally(function () {
+          setLoadingMore(false);
+        });
+    },
+    [loadingMore, hasMore, convId, nextOffset],
   );
 
   var handleSend = useCallback(
     function () {
       var text = inputText.trim();
-      if (!text || sending) return;
+      if (!text || sending || !convId) return;
 
       setSending(true);
       setInputText('');
@@ -117,107 +268,156 @@ var ChatScreen = function () {
         id: 'local-' + Date.now(),
         content: text,
         isUser: true,
-        createdAt: new Date().toISOString(),
+        time: new Date().toISOString(),
+        pinned: false,
+        read: false,
         _local: true,
       };
-      setLocalMessages(function (prev) {
+      setMessages(function (prev) {
         return prev.concat([optimistic]);
       });
 
-      // Try WebSocket first, fall back to REST
-      var wsSent = chat.sendMessage(text);
-      if (!wsSent) {
-        apiPost(CONVERSATIONS.SEND_MESSAGE(conversationId), { content: text })
-          .then(function () {
-            queryClient.invalidateQueries({ queryKey: ['chat-messages', conversationId] });
-            setLocalMessages(function (prev) {
-              return prev.filter(function (m) {
-                return m.id !== optimistic.id;
-              });
-            });
-          })
-          .catch(function () {
-            // Mark failed
-            setLocalMessages(function (prev) {
-              return prev.map(function (m) {
-                return m.id === optimistic.id
-                  ? Object.assign({}, m, { _failed: true })
-                  : m;
-              });
+      apiPost(FRIEND_CHAT.SEND_MESSAGE(convId), { content: text })
+        .then(function () {
+          queryClient.invalidateQueries({ queryKey: ['friend-messages', convId] });
+          queryClient.invalidateQueries({ queryKey: ['friend-conversations'] });
+          setMessages(function (prev) {
+            return prev.filter(function (m) {
+              return m.id !== optimistic.id;
             });
           });
-      }
+        })
+        .catch(function () {
+          setMessages(function (prev) {
+            return prev.map(function (m) {
+              return m.id === optimistic.id
+                ? Object.assign({}, m, { _failed: true })
+                : m;
+            });
+          });
+        });
+
       setSending(false);
     },
-    [inputText, sending, conversationId, chat, queryClient],
+    [inputText, sending, convId, queryClient],
   );
 
-  var renderMessage = useCallback(function (info) {
-    var item = info.item;
-    var isUser = item.isUser || item.role === 'user';
-    var content = item.content || item.text || '';
-    var time = formatTime(item.createdAt);
+  // Reversed messages for inverted FlatList
+  var reversedMessages = messages.slice().reverse();
 
-    return React.createElement(
-      View,
-      {
-        style: [
-          styles.msgRow,
-          isUser ? styles.msgRowUser : styles.msgRowOther,
-        ],
-      },
-      !isUser
-        ? React.createElement(Avatar, {
-            name: chatTitle,
-            size: 32,
-            color: avatarColor(chatTitle),
-            style: { marginRight: 8 },
-          })
-        : null,
-      React.createElement(
+  var renderMessage = useCallback(
+    function (info) {
+      var item = info.item;
+      var index = info.index;
+      var isUser = item.isUser;
+      var showDate = shouldShowDate(reversedMessages, index);
+
+      return React.createElement(
         View,
-        {
-          style: [
-            styles.msgBubble,
-            isUser ? styles.msgBubbleUser : styles.msgBubbleOther,
-            item._failed ? { opacity: 0.5 } : null,
-          ],
-        },
-        React.createElement(
-          Text,
-          { style: [styles.msgText, isUser ? styles.msgTextUser : null] },
-          content,
-        ),
+        null,
+        showDate
+          ? React.createElement(
+              View,
+              { style: styles.dateSeparator },
+              React.createElement(
+                View,
+                { style: styles.datePill },
+                React.createElement(
+                  Text,
+                  { style: styles.dateText },
+                  formatDateLabel(item.time),
+                ),
+              ),
+            )
+          : null,
+
         React.createElement(
           View,
-          { style: styles.msgMeta },
-          React.createElement(
-            Text,
-            { style: styles.msgTime },
-            time,
-          ),
-          item._failed
-            ? React.createElement(Icon, {
-                name: 'alert-circle',
-                size: 12,
-                color: COLORS.red,
-                style: { marginLeft: 4 },
+          {
+            style: [
+              styles.msgRow,
+              isUser ? styles.msgRowUser : styles.msgRowOther,
+            ],
+          },
+          !isUser
+            ? React.createElement(Avatar, {
+                name: friendName,
+                src: friendInfo && friendInfo.avatar,
+                size: 32,
+                color: COLORS.teal || '#14B8A6',
+                style: { marginRight: 8 },
               })
             : null,
+          React.createElement(
+            View,
+            {
+              style: [
+                styles.msgBubble,
+                isUser ? styles.msgBubbleUser : styles.msgBubbleOther,
+                item._failed ? { opacity: 0.5 } : null,
+              ],
+            },
+            React.createElement(
+              Text,
+              { style: [styles.msgText, isUser ? styles.msgTextUser : null] },
+              item.content,
+            ),
+            React.createElement(
+              View,
+              { style: styles.msgMeta },
+              React.createElement(
+                Text,
+                { style: [styles.msgTime, isUser ? { color: 'rgba(255,255,255,0.6)' } : null] },
+                formatTime(item.time),
+              ),
+              item._failed
+                ? React.createElement(Icon, {
+                    name: 'alert-circle',
+                    size: 12,
+                    color: COLORS.red,
+                    style: { marginLeft: 4 },
+                  })
+                : null,
+            ),
+          ),
         ),
-      ),
-    );
-  }, [chatTitle]);
+      );
+    },
+    [reversedMessages, friendName, friendInfo],
+  );
 
   var keyExtractor = useCallback(function (item) {
     return String(item.id);
   }, []);
 
+  // Error state
+  if (initError && !convId) {
+    return React.createElement(
+      ScreenShell,
+      null,
+      React.createElement(GlassHeader, {
+        title: friendName,
+        onBack: function () {
+          navigation.goBack();
+        },
+      }),
+      React.createElement(
+        View,
+        { style: styles.loadingWrap },
+        React.createElement(
+          Text,
+          { style: { color: COLORS.textSecondary, fontSize: 14 } },
+          initError,
+        ),
+      ),
+    );
+  }
+
   return React.createElement(
     ScreenShell,
     null,
     React.createElement(GlassHeader, {
-      title: chatTitle,
+      title: friendName,
       onBack: function () {
         navigation.goBack();
       },
@@ -226,33 +426,39 @@ var ChatScreen = function () {
           icon: 'phone',
           label: 'Voice call',
           onPress: function () {
-            navigation.navigate('VoiceCall', { conversationId: conversationId, title: chatTitle });
+            var friendUserId = (friendInfo && friendInfo.id) || paramFriendId;
+            apiPost(FRIEND_CHAT.CALLS.INITIATE, { calleeId: friendUserId, callType: 'voice' })
+              .then(function (data) {
+                var callId = data.callId || data.id;
+                navigation.navigate('VoiceCall', {
+                  callId: callId,
+                  friendName: friendName,
+                });
+              })
+              .catch(function (err) {
+                console.error('[Chat] voice call failed:', err);
+              });
           },
         },
         {
           icon: 'video',
           label: 'Video call',
           onPress: function () {
-            navigation.navigate('VideoCall', { conversationId: conversationId, title: chatTitle });
+            var friendUserId = (friendInfo && friendInfo.id) || paramFriendId;
+            apiPost(FRIEND_CHAT.CALLS.INITIATE, { calleeId: friendUserId, callType: 'video' })
+              .then(function (data) {
+                var callId = data.callId || data.id;
+                navigation.navigate('VideoCall', {
+                  callId: callId,
+                  friendName: friendName,
+                });
+              })
+              .catch(function (err) {
+                console.error('[Chat] video call failed:', err);
+              });
           },
         },
       ],
-      titleComponent: React.createElement(
-        View,
-        null,
-        React.createElement(
-          Text,
-          { style: styles.headerTitle, numberOfLines: 1 },
-          chatTitle,
-        ),
-        chat.connected
-          ? React.createElement(
-              Text,
-              { style: styles.headerStatus },
-              'Online',
-            )
-          : null,
-      ),
     }),
 
     React.createElement(
@@ -263,7 +469,7 @@ var ChatScreen = function () {
         keyboardVerticalOffset: Platform.OS === 'ios' ? 0 : 0,
       },
       // Messages list (inverted)
-      messagesQuery.isLoading
+      initLoading || messagesQuery.isLoading
         ? React.createElement(
             View,
             { style: styles.loadingWrap },
@@ -271,31 +477,32 @@ var ChatScreen = function () {
           )
         : React.createElement(FlatList, {
             ref: flatListRef,
-            data: allMessages.slice().reverse(),
+            data: reversedMessages,
             renderItem: renderMessage,
             keyExtractor: keyExtractor,
             inverted: true,
             contentContainerStyle: { paddingHorizontal: SPACING.lg, paddingVertical: SPACING.md },
             showsVerticalScrollIndicator: false,
+            onEndReached: function () {
+              if (hasMore && !loadingMore) loadOlder();
+            },
+            onEndReachedThreshold: 0.3,
+            ListFooterComponent: loadingMore
+              ? React.createElement(
+                  View,
+                  { style: { paddingVertical: 12 } },
+                  React.createElement(ActivityIndicator, {
+                    size: 'small',
+                    color: COLORS.purple,
+                  }),
+                )
+              : null,
           }),
-
-      // Ad banner above input
-      React.createElement(AdBanner, { size: 'small', style: { marginHorizontal: SPACING.sm, marginBottom: 0, borderRadius: 8 } }),
 
       // Input bar
       React.createElement(
         View,
         { style: styles.inputBar },
-        React.createElement(
-          TouchableOpacity,
-          {
-            style: styles.attachBtn,
-            accessible: true,
-            accessibilityRole: 'button',
-            accessibilityLabel: 'Attach file',
-          },
-          React.createElement(Icon, { name: 'plus', size: 20, color: COLORS.textSecondary }),
-        ),
         React.createElement(TextInput, {
           style: styles.textInput,
           placeholder: 'Type a message...',
@@ -303,7 +510,7 @@ var ChatScreen = function () {
           value: inputText,
           onChangeText: setInputText,
           multiline: true,
-          maxLength: 5000,
+          maxLength: 2000,
           onSubmitEditing: handleSend,
           blurOnSubmit: false,
           accessible: true,
@@ -336,20 +543,24 @@ var ChatScreen = function () {
 };
 
 var styles = StyleSheet.create({
-  headerTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: COLORS.text,
-  },
-  headerStatus: {
-    fontSize: 11,
-    color: COLORS.online,
-    marginTop: 1,
-  },
   loadingWrap: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  dateSeparator: {
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
+  datePill: {
+    backgroundColor: COLORS.glassBg,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  dateText: {
+    fontSize: 11,
+    color: COLORS.textMuted,
   },
   msgRow: {
     flexDirection: 'row',
@@ -360,6 +571,7 @@ var styles = StyleSheet.create({
   },
   msgRowOther: {
     justifyContent: 'flex-start',
+    alignItems: 'flex-end',
   },
   msgBubble: {
     maxWidth: '75%',
@@ -389,10 +601,11 @@ var styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginTop: 4,
+    justifyContent: 'flex-end',
   },
   msgTime: {
     fontSize: 10,
-    color: 'rgba(255,255,255,0.5)',
+    color: COLORS.textMuted,
   },
   inputBar: {
     flexDirection: 'row',
@@ -402,15 +615,6 @@ var styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.03)',
     borderTopWidth: 1,
     borderTopColor: COLORS.divider,
-  },
-  attachBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: COLORS.glassBg,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 8,
   },
   textInput: {
     flex: 1,

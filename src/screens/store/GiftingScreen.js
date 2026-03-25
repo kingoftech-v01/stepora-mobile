@@ -146,6 +146,20 @@ var GiftingScreen = function () {
     },
   });
 
+  var claimGiftMut = useMutation({
+    mutationFn: function (giftId) {
+      return apiPost(STORE.GIFT_CLAIM(giftId));
+    },
+    onSuccess: function () {
+      queryClient.invalidateQueries({ queryKey: ['gifts-received'] });
+      queryClient.invalidateQueries({ queryKey: ['gifts-sent'] });
+      Alert.alert('Gift Claimed!', 'The gift has been added to your inventory.');
+    },
+    onError: function (err) {
+      Alert.alert('Error', err.message || 'Failed to claim gift.');
+    },
+  });
+
   var handleSendGift = function () {
     if (!selectedItem || !selectedRecipient) return;
     sendGiftMut.mutate({
@@ -153,6 +167,10 @@ var GiftingScreen = function () {
       recipient_id: selectedRecipient.id,
       message: giftMessage.trim() || undefined,
     });
+  };
+
+  var handleClaimGift = function (giftId) {
+    claimGiftMut.mutate(giftId);
   };
 
   var onRefresh = useCallback(function () {
@@ -366,6 +384,25 @@ var GiftingScreen = function () {
               Text,
               { style: styles.giftMessageText, numberOfLines: 2 },
               gift.message,
+            ),
+          )
+        : null,
+      // Claim button for unclaimed received gifts
+      historyTab === 'received' && gift.status !== 'claimed'
+        ? React.createElement(
+            View,
+            { style: { marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: theme.divider } },
+            React.createElement(
+              GlassButton,
+              {
+                variant: 'primary',
+                size: 'sm',
+                fullWidth: true,
+                onPress: function () { handleClaimGift(gift.id); },
+                disabled: claimGiftMut.isPending,
+                loading: claimGiftMut.isPending,
+              },
+              'Claim Gift',
             ),
           )
         : null,

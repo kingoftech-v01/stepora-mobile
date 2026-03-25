@@ -88,8 +88,10 @@ var ExploreScreen = function () {
       name: name,
       initial: name[0].toUpperCase(),
       level: u.currentLevel || u.level || 1,
-      mutualFriends: u.mutualFriends || 0,
-      isFriend: u.isFriend || false,
+      mutualFriends: u.mutualFriends || u.mutual_friends || 0,
+      isFriend: u.isFriend || u.is_friend || false,
+      isPendingRequest: u.isPendingRequest || u.is_pending_request || false,
+      isPrivate: (u.profileVisibility || u.profile_visibility) === 'private',
     });
   };
 
@@ -174,7 +176,7 @@ var ExploreScreen = function () {
               (user.mutualFriends > 0 ? ' \u00B7 ' + user.mutualFriends + ' mutual' : ''),
           ),
         ),
-        !user.isFriend && !isSent
+        !user.isFriend && !isSent && !user.isPendingRequest
           ? React.createElement(
               TouchableOpacity,
               {
@@ -188,17 +190,19 @@ var ExploreScreen = function () {
               },
               React.createElement(Icon, { name: 'user-plus', size: 16, color: '#FFFFFF' }),
             )
-          : isSent
+          : isSent || user.isPendingRequest
             ? React.createElement(
                 View,
                 { style: styles.sentBadge },
                 React.createElement(Icon, { name: 'check', size: 14, color: COLORS.purple }),
               )
-            : React.createElement(
-                View,
-                { style: styles.friendBadge },
-                React.createElement(Icon, { name: 'users', size: 14, color: COLORS.online }),
-              ),
+            : user.isFriend
+              ? React.createElement(
+                  View,
+                  { style: styles.friendBadge },
+                  React.createElement(Icon, { name: 'users', size: 14, color: COLORS.online }),
+                )
+              : null,
       );
     },
     [sentRequests, handleAddFriend, navigation],

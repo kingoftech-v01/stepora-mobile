@@ -2,23 +2,21 @@
  * useEmailGateScreen — Business logic for the email verification gate.
  * Adapted from the web app's useEmailGateScreen.js.
  * Auto-polls for verification status, allows resending verification email.
+ * Now uses useAuth() hook directly instead of prop injection.
  */
 var { useState, useEffect, useRef, useCallback } = require('react');
 var { useNavigation } = require('@react-navigation/native');
 var { apiPost } = require('../../../services/api');
 var { AUTH } = require('../../../services/endpoints');
+var { useAuth } = require('../../../context/AuthContext');
 
 var POLL_INTERVAL = 5000;
 
-function useEmailGateScreen(authContext) {
+function useEmailGateScreen() {
   var navigation = useNavigation();
   var t = function (key) { return key; };
 
-  // AuthContext values passed as prop (since require may cause issues)
-  var user = authContext && authContext.user;
-  var refreshUser = authContext && authContext.refreshUser;
-  var logout = authContext && authContext.logout;
-  var isAuthenticated = authContext && authContext.isAuthenticated;
+  var { user, refreshUser, logout, isAuthenticated } = useAuth();
 
   var [resending, setResending] = useState(false);
   var [resent, setResent] = useState(false);
@@ -26,6 +24,13 @@ function useEmailGateScreen(authContext) {
   var pollRef = useRef(null);
 
   var email = (user && user.email) || '';
+
+  // ─── Redirect to login if not authenticated ──────────
+  useEffect(function () {
+    if (!isAuthenticated) {
+      navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
+    }
+  }, [isAuthenticated, navigation]);
 
   // ─── Auto-poll for verification ───────────────────────
   useEffect(function () {
@@ -42,7 +47,7 @@ function useEmailGateScreen(authContext) {
   // ─── Redirect when verified ───────────────────────────
   useEffect(function () {
     if (user && user.emailVerified) {
-      navigation.reset({ index: 0, routes: [{ name: 'MainTabs' }] });
+      navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
     }
   }, [user, navigation]);
 
@@ -57,7 +62,7 @@ function useEmailGateScreen(authContext) {
         setResent(true);
       })
       .catch(function (err) {
-        setError(err.userMessage || err.message || 'Failed to resend email');
+        setError(err.userMessage || err.message || t('auth.resendFailed'));
       })
       .finally(function () {
         setResending(false);
@@ -84,6 +89,7 @@ function useEmailGateScreen(authContext) {
     handleResend: handleResend,
     handleCheckNow: handleCheckNow,
     handleLogout: handleLogout,
+    logout: logout,
   };
 }
 

@@ -48,6 +48,13 @@ var useDreamsListScreen = function () {
     });
   }
 
+  var active = filtered.filter(function (d) {
+    return d.status === 'active';
+  });
+  var completed = filtered.filter(function (d) {
+    return d.status === 'completed';
+  });
+
   var filters = [
     { key: 'all', label: 'All' },
     { key: 'active', label: 'Active' },
@@ -64,12 +71,15 @@ var useDreamsListScreen = function () {
     dreamsInf: dreamsInf,
     dreams: dreams,
     filtered: filtered,
+    active: active,
+    completed: completed,
     filters: filters,
     CAT_ICONS: CAT_ICONS,
     STATUS_CFG: STATUS_CFG,
     CATEGORIES: CATEGORIES,
     catSolid: catSolid,
     BRAND: BRAND,
+    GRADIENTS: GRADIENTS,
   };
 };
 

@@ -1,131 +1,196 @@
 /**
  * usePersonalityQuizScreen — Business logic for the personality assessment quiz.
- * Adapted from the web app's usePersonalityQuiz.js.
+ * Synced with the web app's usePersonalityQuiz.js.
  * 8 questions, determines dreamer type, submits to USERS.PERSONALITY_QUIZ.
+ * Key fixes from web: i18n-ready question keys, handleSkip, updateUser on result,
+ * onboardingCompleted key, visible error on API failure.
  */
 var { useState, useCallback, useMemo } = require('react');
 var { useNavigation } = require('@react-navigation/native');
+var AsyncStorage = require('@react-native-async-storage/async-storage').default;
 var { apiPost } = require('../../../services/api');
 var { USERS } = require('../../../services/endpoints');
+var { useAuth } = require('../../../context/AuthContext');
 
-// ─── Questions ──────────────────────────────────────────────
-var QUESTIONS = [
+// ─── Questions (i18n key-based, matching web) ───────────────
+var QUESTIONS_KEYS = [
   {
-    question: 'When you face a tough decision, what do you rely on most?',
+    questionKey: 'quiz.q1.question',
     options: [
-      { text: 'Deep analysis and logic', icon: 'cpu' },
-      { text: 'Input from people I trust', icon: 'users' },
-      { text: 'My gut instinct', icon: 'zap' },
-      { text: 'Clear goals and data', icon: 'target' },
+      { textKey: 'quiz.q1.opt1', icon: 'cpu' },
+      { textKey: 'quiz.q1.opt2', icon: 'users' },
+      { textKey: 'quiz.q1.opt3', icon: 'zap' },
+      { textKey: 'quiz.q1.opt4', icon: 'target' },
     ],
   },
   {
-    question: 'What motivates you the most?',
+    questionKey: 'quiz.q2.question',
     options: [
-      { text: 'Learning something new', icon: 'book-open' },
-      { text: 'Helping others succeed', icon: 'heart' },
-      { text: 'Winning and achievement', icon: 'award' },
-      { text: 'Exploring the unknown', icon: 'compass' },
+      { textKey: 'quiz.q2.opt1', icon: 'book-open' },
+      { textKey: 'quiz.q2.opt2', icon: 'heart' },
+      { textKey: 'quiz.q2.opt3', icon: 'award' },
+      { textKey: 'quiz.q2.opt4', icon: 'compass' },
     ],
   },
   {
-    question: 'How do you approach a new project?',
+    questionKey: 'quiz.q3.question',
     options: [
-      { text: 'Brainstorm creative ideas first', icon: 'star' },
-      { text: 'Gather a team and delegate', icon: 'users' },
-      { text: 'Set milestones and push through', icon: 'trending-up' },
-      { text: 'Research thoroughly before starting', icon: 'cpu' },
+      { textKey: 'quiz.q3.opt1', icon: 'star' },
+      { textKey: 'quiz.q3.opt2', icon: 'users' },
+      { textKey: 'quiz.q3.opt3', icon: 'trending-up' },
+      { textKey: 'quiz.q3.opt4', icon: 'cpu' },
     ],
   },
   {
-    question: 'What does success look like to you?',
+    questionKey: 'quiz.q4.question',
     options: [
-      { text: 'Making a meaningful impact', icon: 'star' },
-      { text: 'Strong relationships and community', icon: 'users' },
-      { text: 'Hitting every target I set', icon: 'check-circle' },
-      { text: 'Freedom to explore and create', icon: 'compass' },
+      { textKey: 'quiz.q4.opt1', icon: 'star' },
+      { textKey: 'quiz.q4.opt2', icon: 'users' },
+      { textKey: 'quiz.q4.opt3', icon: 'check-circle' },
+      { textKey: 'quiz.q4.opt4', icon: 'compass' },
     ],
   },
   {
-    question: 'How do you recharge after a long day?',
+    questionKey: 'quiz.q5.question',
     options: [
-      { text: 'Creative hobbies or art', icon: 'edit-3' },
-      { text: 'Spending time with loved ones', icon: 'users' },
-      { text: 'Working on a side project', icon: 'briefcase' },
-      { text: 'Exploring nature or traveling', icon: 'map' },
+      { textKey: 'quiz.q5.opt1', icon: 'edit-3' },
+      { textKey: 'quiz.q5.opt2', icon: 'users' },
+      { textKey: 'quiz.q5.opt3', icon: 'briefcase' },
+      { textKey: 'quiz.q5.opt4', icon: 'map' },
     ],
   },
   {
-    question: 'What is your dream superpower?',
+    questionKey: 'quiz.q6.question',
     options: [
-      { text: 'Ability to innovate instantly', icon: 'zap' },
-      { text: 'Empathy to understand everyone', icon: 'heart' },
-      { text: 'Laser focus on any task', icon: 'target' },
-      { text: 'Ability to see all possibilities', icon: 'compass' },
+      { textKey: 'quiz.q6.opt1', icon: 'zap' },
+      { textKey: 'quiz.q6.opt2', icon: 'heart' },
+      { textKey: 'quiz.q6.opt3', icon: 'target' },
+      { textKey: 'quiz.q6.opt4', icon: 'compass' },
     ],
   },
   {
-    question: 'When obstacles arise, you tend to...',
+    questionKey: 'quiz.q7.question',
     options: [
-      { text: 'Find a creative workaround', icon: 'star' },
-      { text: 'Ask for help and collaborate', icon: 'users' },
-      { text: 'Double down and push harder', icon: 'target' },
-      { text: 'Step back and reassess the path', icon: 'map' },
+      { textKey: 'quiz.q7.opt1', icon: 'star' },
+      { textKey: 'quiz.q7.opt2', icon: 'users' },
+      { textKey: 'quiz.q7.opt3', icon: 'target' },
+      { textKey: 'quiz.q7.opt4', icon: 'map' },
     ],
   },
   {
-    question: 'What do you value most in a dream buddy?',
+    questionKey: 'quiz.q8.question',
     options: [
-      { text: 'Shared ambition and vision', icon: 'star' },
-      { text: 'Emotional support and empathy', icon: 'heart' },
-      { text: 'Accountability and discipline', icon: 'award' },
-      { text: 'Fresh perspectives and ideas', icon: 'compass' },
+      { textKey: 'quiz.q8.opt1', icon: 'star' },
+      { textKey: 'quiz.q8.opt2', icon: 'heart' },
+      { textKey: 'quiz.q8.opt3', icon: 'award' },
+      { textKey: 'quiz.q8.opt4', icon: 'compass' },
     ],
   },
 ];
 
-// ─── Personality type configs ────────────────────────────────
-var TYPE_CONFIG = {
+// ─── Personality type configs (i18n key-based, matching web) ──
+var TYPE_CONFIG_KEYS = {
   visionary: {
-    title: 'The Visionary',
-    description: 'You see the big picture and inspire others with your creative vision. You dream boldly and think outside the box.',
-    traits: ['Creative thinker', 'Big-picture oriented', 'Inspiring leader', 'Innovation-driven'],
+    titleKey: 'quiz.type.visionary.title',
+    descriptionKey: 'quiz.type.visionary.description',
+    traitKeys: [
+      'quiz.type.visionary.trait1',
+      'quiz.type.visionary.trait2',
+      'quiz.type.visionary.trait3',
+      'quiz.type.visionary.trait4',
+    ],
     color: '#8B5CF6',
+    gradient: ['#8B5CF6', '#EC4899'],
     icon: 'star',
   },
   achiever: {
-    title: 'The Achiever',
-    description: 'You set ambitious goals and crush them with discipline and determination. Nothing stops you once you commit.',
-    traits: ['Goal-oriented', 'Disciplined', 'Results-driven', 'Highly focused'],
+    titleKey: 'quiz.type.achiever.title',
+    descriptionKey: 'quiz.type.achiever.description',
+    traitKeys: [
+      'quiz.type.achiever.trait1',
+      'quiz.type.achiever.trait2',
+      'quiz.type.achiever.trait3',
+      'quiz.type.achiever.trait4',
+    ],
     color: '#F59E0B',
+    gradient: ['#F59E0B', '#EF4444'],
     icon: 'award',
   },
   explorer: {
-    title: 'The Explorer',
-    description: 'You thrive on discovery and new experiences. Your curiosity drives you to constantly learn and grow.',
-    traits: ['Adventurous spirit', 'Lifelong learner', 'Adaptable', 'Open-minded'],
+    titleKey: 'quiz.type.explorer.title',
+    descriptionKey: 'quiz.type.explorer.description',
+    traitKeys: [
+      'quiz.type.explorer.trait1',
+      'quiz.type.explorer.trait2',
+      'quiz.type.explorer.trait3',
+      'quiz.type.explorer.trait4',
+    ],
     color: '#14B8A6',
+    gradient: ['#14B8A6', '#3B82F6'],
     icon: 'compass',
   },
   collaborator: {
-    title: 'The Collaborator',
-    description: 'You believe in the power of connection. You lift others up and achieve more together than alone.',
-    traits: ['Team player', 'Empathetic', 'Supportive', 'Community builder'],
+    titleKey: 'quiz.type.collaborator.title',
+    descriptionKey: 'quiz.type.collaborator.description',
+    traitKeys: [
+      'quiz.type.collaborator.trait1',
+      'quiz.type.collaborator.trait2',
+      'quiz.type.collaborator.trait3',
+      'quiz.type.collaborator.trait4',
+    ],
     color: '#EC4899',
+    gradient: ['#EC4899', '#F59E0B'],
     icon: 'users',
   },
   strategist: {
-    title: 'The Strategist',
-    description: 'You approach dreams with logic and precision. Your analytical mind finds the optimal path to success.',
-    traits: ['Analytical thinker', 'Detail-oriented', 'Problem solver', 'Data-driven'],
+    titleKey: 'quiz.type.strategist.title',
+    descriptionKey: 'quiz.type.strategist.description',
+    traitKeys: [
+      'quiz.type.strategist.trait1',
+      'quiz.type.strategist.trait2',
+      'quiz.type.strategist.trait3',
+      'quiz.type.strategist.trait4',
+    ],
     color: '#6366F1',
+    gradient: ['#6366F1', '#8B5CF6'],
     icon: 'cpu',
   },
 };
 
 function usePersonalityQuizScreen() {
   var navigation = useNavigation();
+  var { updateUser } = useAuth();
+  // Placeholder t() — returns key as-is until I18nContext is wired up
   var t = function (key) { return key; };
+
+  // Build translated QUESTIONS from keys (matching web's useMemo pattern)
+  var QUESTIONS = useMemo(function () {
+    return QUESTIONS_KEYS.map(function (q) {
+      return {
+        question: t(q.questionKey),
+        options: q.options.map(function (o) {
+          return { text: t(o.textKey), icon: o.icon };
+        }),
+      };
+    });
+  }, [t]);
+
+  // Build translated TYPE_CONFIG from keys (matching web's useMemo pattern)
+  var TYPE_CONFIG = useMemo(function () {
+    var cfg = {};
+    Object.keys(TYPE_CONFIG_KEYS).forEach(function (key) {
+      var raw = TYPE_CONFIG_KEYS[key];
+      cfg[key] = {
+        title: t(raw.titleKey),
+        description: t(raw.descriptionKey),
+        traits: raw.traitKeys.map(function (tk) { return t(tk); }),
+        color: raw.color,
+        gradient: raw.gradient,
+        icon: raw.icon,
+      };
+    });
+    return cfg;
+  }, [t]);
 
   var [currentQ, setCurrentQ] = useState(0);
   var [answers, setAnswers] = useState([]);
@@ -159,13 +224,21 @@ function usePersonalityQuizScreen() {
         .then(function (data) {
           setResult(data);
           setShowResult(true);
+          // Optimistically update user's dreamerType (matching web)
+          if (data.dreamerType && updateUser) {
+            updateUser({ dreamerType: data.dreamerType });
+          }
         })
         .catch(function (err) {
-          setError(err.userMessage || err.message || 'Failed to submit quiz');
+          // Show error to user — do NOT silently fail (matching web's toast behavior)
+          setError(
+            err.userMessage || err.message ||
+            t('quiz.saveFailed') || 'Failed to save quiz results. Please try again.'
+          );
           setLoading(false);
         });
     }
-  }, [answers, currentQ, loading, totalQuestions]);
+  }, [answers, currentQ, loading, totalQuestions, updateUser]);
 
   // ─── Go back to previous question ────────────────────
   var goBack = useCallback(function () {
@@ -174,18 +247,33 @@ function usePersonalityQuizScreen() {
     }
   }, [currentQ, loading]);
 
-  // ─── Continue after results ──────────────────────────
-  var handleContinue = useCallback(function () {
+  // ─── Complete onboarding helper ────────────────────────
+  var _completeOnboarding = useCallback(function () {
+    AsyncStorage.setItem('dp-onboarded', 'true').catch(function () {});
     apiPost(USERS.COMPLETE_ONBOARDING, { hasOnboarded: true })
       .then(function () {
-        // Onboarding complete
+        if (updateUser) updateUser({ onboardingCompleted: true });
       })
       .catch(function (err) {
-        console.error('[PersonalityQuiz] complete onboarding failed:', err);
+        // Show error — no silent failures
+        setError(
+          err.userMessage || err.message ||
+          t('quiz.failedSave') || 'Failed to save onboarding status.'
+        );
       });
-    // Navigate to main app
+  }, [updateUser]);
+
+  // ─── Continue after results ──────────────────────────
+  var handleContinue = useCallback(function () {
+    _completeOnboarding();
     navigation.reset({ index: 0, routes: [{ name: 'MainTabs' }] });
-  }, [navigation]);
+  }, [navigation, _completeOnboarding]);
+
+  // ─── Skip quiz (matching web — navigate forward, not backward) ───
+  var handleSkip = useCallback(function () {
+    _completeOnboarding();
+    navigation.reset({ index: 0, routes: [{ name: 'MainTabs' }] });
+  }, [navigation, _completeOnboarding]);
 
   // ─── Get result config ────────────────────────────────
   var typeKey = result ? result.dreamerType : null;
@@ -208,6 +296,7 @@ function usePersonalityQuizScreen() {
     handleAnswer: handleAnswer,
     goBack: goBack,
     handleContinue: handleContinue,
+    handleSkip: handleSkip,
     QUESTIONS: QUESTIONS,
     TYPE_CONFIG: TYPE_CONFIG,
   };

@@ -137,7 +137,7 @@ var AdInterstitial = forwardRef(function (props, ref) {
         if (!auth.user || !auth.isFreeTier) return;
 
         // Apple 5.5: No ads during onboarding
-        if (auth.user.hasOnboarded === false) return;
+        if (auth.user.onboardingCompleted === false) return;
 
         // Apple 5.5: No ads on blocked screens (focus timer, chat, onboarding)
         if (screenName && BLOCKED_SCREENS.indexOf(screenName) !== -1) return;

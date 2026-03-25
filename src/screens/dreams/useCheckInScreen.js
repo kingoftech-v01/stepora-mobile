@@ -1,6 +1,7 @@
 /**
  * useCheckInScreen — Business logic for periodic dream check-ins.
  * Fetches check-in data, collects questionnaire answers, submits and polls for results.
+ * Synced with web: handleBack, completed/failed/skipped status handling, PACE_STYLES.
  */
 var { useState, useEffect, useRef } = require('react');
 var { useNavigation, useRoute } = require('@react-navigation/native');
@@ -41,6 +42,17 @@ var useCheckInScreen = function () {
       .then(function (data) {
         if (cancelled) return;
         setCheckin(data);
+        // If check-in already completed, show results only (read-only)
+        if (data.status === 'completed') {
+          setResult(data);
+          setStep('results');
+          return;
+        }
+        // If check-in was already processed/failed, redirect to dream
+        if (data.status === 'failed' || data.status === 'skipped') {
+          navigation.navigate('DreamDetail', { id: dreamId });
+          return;
+        }
         var qs = (data.questionnaire || []).map(function (q, i) {
           return {
             id: q.id || 'q' + i,
@@ -78,6 +90,15 @@ var useCheckInScreen = function () {
     if (currentQ >= questions.length - 1) { handleSubmit(); return; }
     setCardAnim(false);
     setTimeout(function () { setCurrentQ(function (p) { return p + 1; }); setCardAnim(true); }, 200);
+  };
+
+  var handleBack = function () {
+    if (currentQ === 0) {
+      setStep('intro');
+      return;
+    }
+    setCardAnim(false);
+    setTimeout(function () { setCurrentQ(function (p) { return p - 1; }); setCardAnim(true); }, 200);
   };
 
   var handleSubmit = function () {
@@ -135,6 +156,7 @@ var useCheckInScreen = function () {
     progress: progress,
     canProceed: canProceed,
     handleNext: handleNext,
+    handleBack: handleBack,
     handleSubmit: handleSubmit,
     BRAND: BRAND,
     GRADIENTS: GRADIENTS,

@@ -28,8 +28,12 @@ export function ToastProvider({ children }) {
     });
   }, []);
 
+  var dismissToast = useCallback(function () {
+    Toast.hide();
+  }, []);
+
   return (
-    <ToastContext.Provider value={{ showToast: showToast }}>
+    <ToastContext.Provider value={{ showToast: showToast, dismissToast: dismissToast }}>
       {children}
       <Toast />
     </ToastContext.Provider>

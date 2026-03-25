@@ -1,8 +1,10 @@
 /**
  * useTermsOfServiceScreen -- business logic for Terms of Service (React Native).
- * Adapted from the web app's useTermsOfServiceScreen.js.
+ * Synced with web app's useTermsOfServiceScreen.js.
  */
+var { useState, useEffect } = require('react');
 var { useNavigation } = require('@react-navigation/native');
+var { useT } = require('../../../context/I18nContext');
 
 var SECTIONS = [
   {
@@ -49,11 +51,19 @@ var SECTIONS = [
 
 function useTermsOfServiceScreen() {
   var navigation = useNavigation();
-  var t = function (key) { return key; };
+  var { t } = useT();
+  var [mounted, setMounted] = useState(false);
+
+  useEffect(function () {
+    setTimeout(function () {
+      setMounted(true);
+    }, 50);
+  }, []);
 
   return {
     navigation: navigation,
     t: t,
+    mounted: mounted,
     SECTIONS: SECTIONS,
   };
 }

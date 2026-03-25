@@ -1,17 +1,20 @@
 /**
  * useLoginScreen -- shared business logic for the Login screen (React Native).
  * Adapted from the web app's useLoginScreen.js.
- * Replaces: useNavigate -> navigation.navigate, window/sessionStorage -> AsyncStorage,
- * import.meta.env -> Config, no popup-based OAuth (uses Linking).
+ * Uses AuthContext for login/socialLogin (same as web), React Navigation,
+ * and AsyncStorage-based token management.
  */
-var { useState, useEffect } = require('react');
+var { useState } = require('react');
 var { useNavigation } = require('@react-navigation/native');
-var { apiPost, setTokens } = require('../../../services/api');
+var { apiPost, setToken } = require('../../../services/api');
 var { AUTH } = require('../../../services/endpoints');
 var { isValidEmail } = require('../../../utils/sanitize');
+var { useAuth } = require('../../../context/AuthContext');
+var Config = require('../../../config').default || {};
 
 function useLoginScreen() {
   var navigation = useNavigation();
+  var { login, socialLogin, refreshUser } = useAuth();
   // Placeholder t() until I18nContext is wired up
   var t = function (key) { return key; };
   var [email, setEmail] = useState('');
@@ -34,21 +37,20 @@ function useLoginScreen() {
     if (Object.keys(errs).length > 0) return;
 
     setSubmitting(true);
-    apiPost(AUTH.LOGIN, { email: email, password: password })
-      .then(function (data) {
-        if (data && data.tfaRequired) {
+    login(email, password)
+      .then(function (result) {
+        if (result && result.tfaRequired) {
           setTfaRequired(true);
-          setTfaChallengeToken(data.challengeToken || '');
+          setTfaChallengeToken(result.challengeToken || '');
           setSubmitting(false);
           return;
         }
-        var access = data.access || data.accessToken || '';
-        var refresh = data.refresh || data.refreshToken || '';
-        return setTokens(access, refresh).then(function () {
-          navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
-        });
+        navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
       })
       .catch(function (err) {
+        if (err.fieldErrors) {
+          setErrors(err.fieldErrors);
+        }
         var msg = err.userMessage || err.message || '';
         if (
           msg.toLowerCase().includes('not verified') ||
@@ -70,12 +72,12 @@ function useLoginScreen() {
 
   var handleGoogleLogin = function () {
     // TODO: Implement native Google Sign-In (react-native-google-signin)
-    setServerError('Google login not yet configured for native.');
+    setServerError(t('auth.googleNotConfigured'));
   };
 
   var handleAppleLogin = function () {
     // TODO: Implement native Apple Sign-In (@invertase/react-native-apple-authentication)
-    setServerError('Apple login not yet configured for native.');
+    setServerError(t('auth.appleNotConfigured'));
   };
 
   var handleTfaVerify = function () {
@@ -92,9 +94,11 @@ function useLoginScreen() {
       .then(function (data) {
         var access = data.access || data.accessToken;
         if (!access) throw new Error('No token received');
-        return setTokens(access, data.refresh || data.refreshToken).then(function () {
-          navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
-        });
+        setToken(access, data.refresh || data.refreshToken);
+        return refreshUser();
+      })
+      .then(function () {
+        navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
       })
       .catch(function (err) {
         setServerError(err.userMessage || err.message || t('auth.tfaInvalid'));
@@ -110,6 +114,10 @@ function useLoginScreen() {
     setTfaCode('');
     setServerError('');
   };
+
+  // Feature flags — hide social buttons when not configured
+  var googleConfigured = !!(Config.GOOGLE_CLIENT_ID && Config.USE_GOOGLE_AUTH === 'true');
+  var appleConfigured = !!Config.APPLE_CLIENT_ID;
 
   return {
     navigation: navigation,
@@ -130,6 +138,8 @@ function useLoginScreen() {
     handleSignIn: handleSignIn,
     handleGoogleLogin: handleGoogleLogin,
     handleAppleLogin: handleAppleLogin,
+    googleConfigured: googleConfigured,
+    appleConfigured: appleConfigured,
     handleTfaVerify: handleTfaVerify,
     resetTfa: resetTfa,
   };

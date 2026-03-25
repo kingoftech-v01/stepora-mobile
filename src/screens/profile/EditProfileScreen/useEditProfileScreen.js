@@ -1,20 +1,22 @@
 /**
  * useEditProfileScreen -- business logic for Edit Profile (React Native).
- * Adapted from the web app's useEditProfileScreen.js.
+ * Synced with web app's useEditProfileScreen.js.
  */
 var { useState, useEffect } = require('react');
 var { useNavigation } = require('@react-navigation/native');
 var { apiPut, apiUpload } = require('../../../services/api');
 var { USERS } = require('../../../services/endpoints');
 var { sanitizeText } = require('../../../utils/sanitize');
-var { BRAND, adaptColor } = require('../../../styles/colors');
+var { BRAND, GRADIENTS, adaptColor } = require('../../../styles/colors');
+var { useAuth } = require('../../../context/AuthContext');
+var { useToast } = require('../../../context/ToastContext');
+var { useT } = require('../../../context/I18nContext');
 
 function useEditProfileScreen() {
   var navigation = useNavigation();
-  var t = function (key) { return key; };
-
-  // Placeholder user - in production, would come from AuthContext
-  var user = { displayName: 'User', email: 'user@stepora.app', bio: '', timezone: '', avatarUrl: null };
+  var { user, updateUser } = useAuth();
+  var { showToast } = useToast();
+  var { t } = useT();
 
   var [mounted, setMounted] = useState(false);
   var [name, setName] = useState((user && (user.displayName || user.display_name)) || '');
@@ -25,7 +27,6 @@ function useEditProfileScreen() {
   var [showPicker, setShowPicker] = useState(false);
   var [errors, setErrors] = useState({});
   var [saving, setSaving] = useState(false);
-  var [showToast, setShowToast] = useState(false);
 
   var userEmail = (user && user.email) || '';
   var userInitial = user && (user.displayName || user.display_name)
@@ -45,11 +46,11 @@ function useEditProfileScreen() {
   var validate = function () {
     var e = {};
     var cleanName = name.replace(/[<>"'`;\\]/g, '').trim();
-    if (!cleanName) e.name = 'Display name is required';
-    else if (cleanName.length < 2) e.name = 'Name must be at least 2 characters';
-    else if (cleanName.length > 50) e.name = 'Name must be under 50 characters';
+    if (!cleanName) e.name = t('editProfile.nameRequired') || 'Display name is required';
+    else if (cleanName.length < 2) e.name = t('editProfile.nameTooShort') || 'Name must be at least 2 characters';
+    else if (cleanName.length > 50) e.name = t('editProfile.nameTooLong') || 'Name must be under 50 characters';
     var cleanBio = bio.replace(/[<>"'`;\\]/g, '');
-    if (cleanBio.length > 200) e.bio = 'Bio must be under 200 characters';
+    if (cleanBio.length > 200) e.bio = t('editProfile.bioTooLong') || 'Bio must be under 200 characters';
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -59,7 +60,10 @@ function useEditProfileScreen() {
     var cleanName = sanitizeText(name, 50);
     var cleanBio = sanitizeText(bio, 500);
     var cleanTimezone = sanitizeText(timezone, 100);
-    if (!cleanName) return;
+    if (!cleanName) {
+      showToast(t('editProfile.nameRequired') || 'Display name is required', 'error');
+      return;
+    }
 
     setSaving(true);
 
@@ -69,10 +73,11 @@ function useEditProfileScreen() {
       var formData = new FormData();
       formData.append('avatar', avatarFile);
       promises.push(
-        apiUpload(USERS.UPLOAD_AVATAR, formData).catch(function (err) {
-          setErrors(function (prev) {
-            return Object.assign({}, prev, { avatar: err.userMessage || err.message || 'Failed to upload avatar' });
-          });
+        apiUpload(USERS.UPLOAD_AVATAR, formData).then(function (data) {
+          var newUrl = (data && data.avatarUrl) || null;
+          if (updateUser) updateUser({ avatarUrl: newUrl });
+        }).catch(function (err) {
+          showToast(err.userMessage || err.message || 'Failed to upload avatar', 'error');
         })
       );
     }
@@ -87,30 +92,24 @@ function useEditProfileScreen() {
 
     Promise.all(promises)
       .then(function () {
+        if (updateUser) updateUser({ displayName: cleanName.trim(), bio: cleanBio.trim(), timezone: cleanTimezone });
         setSaving(false);
-        setShowToast(true);
-        setTimeout(function () {
-          setShowToast(false);
-          navigation.goBack();
-        }, 1200);
+        showToast(t('editProfile.saved') || 'Profile updated successfully!', 'success');
+        navigation.goBack();
       })
       .catch(function (err) {
         setSaving(false);
-        setErrors(function (prev) {
-          return Object.assign({}, prev, { server: err.userMessage || err.message || 'Failed to update profile' });
-        });
+        showToast(err.userMessage || err.message || 'Failed to update profile', 'error');
       });
   };
 
   var handleTakePhoto = function () {
     // TODO: Integrate react-native-image-picker or expo-image-picker for camera
-    // For now, close picker
     setShowPicker(false);
   };
 
   var handleChooseGallery = function () {
     // TODO: Integrate react-native-image-picker or expo-image-picker for gallery
-    // For now, close picker
     setShowPicker(false);
   };
 
@@ -139,13 +138,13 @@ function useEditProfileScreen() {
     userAvatarUrl: userAvatarUrl,
     saving: saving,
     hasChanges: hasChanges,
-    showToast: showToast,
     handleSave: handleSave,
     handleTakePhoto: handleTakePhoto,
     handleChooseGallery: handleChooseGallery,
     handleRemovePhoto: handleRemovePhoto,
     adaptColor: adaptColor,
     BRAND: BRAND,
+    GRADIENTS: GRADIENTS,
   };
 }
 

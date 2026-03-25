@@ -23,7 +23,7 @@ var DreamCreateScreen = function () {
     return React.createElement(View, { style: styles.header },
       React.createElement(TouchableOpacity, {
         style: styles.headerBtn,
-        onPress: function () { h.step > 0 ? h.setStep(h.step - 1) : h.navigation.goBack(); },
+        onPress: function () { h.step > 0 ? h.setStep(h.step - 1) : h.navigateBack(); },
         accessible: true,
         accessibilityRole: 'button',
         accessibilityLabel: h.step > 0 ? 'Previous step' : 'Go back',

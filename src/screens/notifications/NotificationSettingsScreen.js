@@ -2,6 +2,11 @@
  * NotificationSettingsScreen — Notification preferences management.
  * Allows users to toggle push notification categories,
  * manage biometric app lock, and configure quiet hours.
+ *
+ * Backend keys (snake_case, auto-transformed to camelCase by API client):
+ *   push_enabled, email_enabled, sound_enabled, dream_reminders,
+ *   goal_deadlines, buddy_messages, circle_updates, league_updates,
+ *   social_activity, ai_suggestions, streak_reminders, weekly_summary
  */
 var React = require('react');
 var { useState, useEffect, useCallback } = React;
@@ -16,7 +21,7 @@ var {
 } = require('react-native');
 var { useNavigation } = require('@react-navigation/native');
 var { useQuery, useMutation, useQueryClient } = require('@tanstack/react-query');
-var { apiGet, apiPatch } = require('../../services/api');
+var { apiGet, apiPut } = require('../../services/api');
 var { USERS } = require('../../services/endpoints');
 var pushService = require('../../services/pushNotifications');
 var { BRAND } = require('../../styles/colors');
@@ -27,15 +32,17 @@ var GlassButton = require('../../components/GlassButton');
 var { ScreenHeader, BackButton } = require('../../components/ScreenHeader');
 
 // ─── Notification Categories ────────────────────────────────────
-
+// Keys match backend allowed_keys (camelCase — auto-transformed to snake_case)
 var CATEGORIES = [
-  { key: 'dreamProgress', label: 'Dream Progress', desc: 'Updates on your dream milestones', emoji: '\uD83C\uDFAF' },
-  { key: 'friendRequests', label: 'Friend Requests', desc: 'New friend and buddy requests', emoji: '\uD83D\uDC65' },
-  { key: 'achievements', label: 'Achievements', desc: 'Badge unlocks and streaks', emoji: '\u2B50' },
-  { key: 'reminders', label: 'Reminders', desc: 'Check-in and task reminders', emoji: '\u23F0' },
-  { key: 'social', label: 'Social Activity', desc: 'Likes, comments, and mentions', emoji: '\uD83D\uDCAC' },
-  { key: 'weeklyReport', label: 'Weekly Report', desc: 'Your progress summary', emoji: '\uD83D\uDCCA' },
-  { key: 'promotions', label: 'Promotions', desc: 'Special offers and new features', emoji: '\uD83C\uDF81' },
+  { key: 'dreamReminders', label: 'Dream Reminders', desc: 'Check-in and milestone reminders', emoji: '\uD83C\uDFAF' },
+  { key: 'goalDeadlines', label: 'Goal Deadlines', desc: 'Upcoming goal deadline alerts', emoji: '\u23F0' },
+  { key: 'buddyMessages', label: 'Buddy Messages', desc: 'Messages from your accountability buddies', emoji: '\uD83D\uDCAC' },
+  { key: 'circleUpdates', label: 'Circle Updates', desc: 'New posts and activity in your circles', emoji: '\uD83D\uDC65' },
+  { key: 'leagueUpdates', label: 'League Updates', desc: 'Rank changes and season results', emoji: '\uD83C\uDFC6' },
+  { key: 'socialActivity', label: 'Social Activity', desc: 'Likes, comments, and mentions', emoji: '\u2764\uFE0F' },
+  { key: 'aiSuggestions', label: 'AI Suggestions', desc: 'Smart coaching tips and insights', emoji: '\u2728' },
+  { key: 'streakReminders', label: 'Streak Reminders', desc: 'Daily streak protection alerts', emoji: '\uD83D\uDD25' },
+  { key: 'weeklySummary', label: 'Weekly Summary', desc: 'Your weekly progress report', emoji: '\uD83D\uDCCA' },
 ];
 
 // ─── Screen ─────────────────────────────────────────────────────
@@ -65,10 +72,11 @@ var NotificationSettingsScreen = function () {
   var prefs = prefsQuery.data || {};
 
   // ─── Mutation ─────────────────────────────────────────────────
+  // Backend expects PUT (not PATCH)
 
   var updateMut = useMutation({
     mutationFn: function (data) {
-      return apiPatch(USERS.NOTIFICATION_PREFS, data);
+      return apiPut(USERS.NOTIFICATION_PREFS, data);
     },
     onSuccess: function () {
       queryClient.invalidateQueries({ queryKey: ['notification-prefs'] });
@@ -148,7 +156,7 @@ var NotificationSettingsScreen = function () {
             React.createElement(
               Text,
               { style: styles.settingDesc },
-              pushEnabled ? 'Enabled — receiving push notifications' : 'Tap to enable push notifications',
+              pushEnabled ? 'Enabled \u2014 receiving push notifications' : 'Tap to enable push notifications',
             ),
           ),
           pushEnabled
@@ -170,6 +178,44 @@ var NotificationSettingsScreen = function () {
                 },
                 'Enable',
               ),
+        ),
+      ),
+
+      // Email notifications toggle
+      React.createElement(
+        GlassCard,
+        { padding: 16, mb: 20 },
+        React.createElement(
+          View,
+          { style: styles.settingRow },
+          React.createElement(
+            Text,
+            { style: { fontSize: 24, marginRight: 12 } },
+            '\u2709\uFE0F',
+          ),
+          React.createElement(
+            View,
+            { style: { flex: 1 } },
+            React.createElement(
+              Text,
+              { style: styles.settingTitle },
+              'Email Notifications',
+            ),
+            React.createElement(
+              Text,
+              { style: styles.settingDesc },
+              'Receive email updates and summaries',
+            ),
+          ),
+          React.createElement(Switch, {
+            value: prefs.emailEnabled !== false,
+            onValueChange: function () {
+              togglePref('emailEnabled', prefs.emailEnabled !== false);
+            },
+            trackColor: { false: theme.surface, true: BRAND.purple + '60' },
+            thumbColor: prefs.emailEnabled !== false ? BRAND.purple : theme.textMuted,
+            accessible: true, accessibilityRole: 'switch', accessibilityLabel: 'Email notifications', accessibilityState: { checked: prefs.emailEnabled !== false },
+          }),
         ),
       ),
 
@@ -220,11 +266,11 @@ var NotificationSettingsScreen = function () {
         );
       }),
 
-      // Quiet hours section
+      // Sound toggle
       React.createElement(
         Text,
         { style: [styles.sectionTitle, { marginTop: 20 }] },
-        'Quiet Hours',
+        'Sound & Alerts',
       ),
       React.createElement(
         GlassCard,
@@ -235,7 +281,7 @@ var NotificationSettingsScreen = function () {
           React.createElement(
             Text,
             { style: { fontSize: 24, marginRight: 12 } },
-            '\uD83C\uDF19',
+            '\uD83D\uDD0A',
           ),
           React.createElement(
             View,
@@ -243,22 +289,22 @@ var NotificationSettingsScreen = function () {
             React.createElement(
               Text,
               { style: styles.settingTitle },
-              'Do Not Disturb',
+              'Notification Sounds',
             ),
             React.createElement(
               Text,
               { style: styles.settingDesc },
-              'Mute notifications during sleep hours',
+              'Play sound with notifications',
             ),
           ),
           React.createElement(Switch, {
-            value: prefs.quietHoursEnabled || false,
+            value: prefs.soundEnabled !== false,
             onValueChange: function () {
-              togglePref('quietHoursEnabled', prefs.quietHoursEnabled || false);
+              togglePref('soundEnabled', prefs.soundEnabled !== false);
             },
             trackColor: { false: theme.surface, true: BRAND.purple + '60' },
-            thumbColor: prefs.quietHoursEnabled ? BRAND.purple : theme.textMuted,
-            accessible: true, accessibilityRole: 'switch', accessibilityLabel: 'Do not disturb quiet hours', accessibilityState: { checked: prefs.quietHoursEnabled || false },
+            thumbColor: prefs.soundEnabled !== false ? BRAND.purple : theme.textMuted,
+            accessible: true, accessibilityRole: 'switch', accessibilityLabel: 'Notification sounds', accessibilityState: { checked: prefs.soundEnabled !== false },
           }),
         ),
       ),
@@ -267,6 +313,8 @@ var NotificationSettingsScreen = function () {
     ),
   );
 };
+
+// ─── Styles ─────────────────────────────────────────────────────
 
 var styles = StyleSheet.create({
   container: {

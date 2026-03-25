@@ -92,10 +92,16 @@ var getFCMToken = function () {
 // ─── Register token with backend ────────────────────────────────
 
 var registerTokenWithBackend = function (apiPost) {
+  var DEVICES_URL;
+  try {
+    DEVICES_URL = require('./endpoints').NOTIFICATIONS.DEVICES;
+  } catch (e) {
+    DEVICES_URL = '/api/notifications/devices/';
+  }
   return getFCMToken().then(function (token) {
     if (!token) return null;
 
-    return apiPost('/api/notifications/devices/', {
+    return apiPost(DEVICES_URL, {
       registration_id: token,
       type: Platform.OS === 'ios' ? 'ios' : 'android',
       active: true,

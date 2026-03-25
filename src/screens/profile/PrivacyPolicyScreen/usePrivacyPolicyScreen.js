@@ -1,9 +1,11 @@
 /**
  * usePrivacyPolicyScreen -- business logic for Privacy Policy (React Native).
- * Adapted from the web app's usePrivacyPolicyScreen.js.
+ * Synced with web app's usePrivacyPolicyScreen.js.
  */
+var { useState, useEffect } = require('react');
 var { useNavigation } = require('@react-navigation/native');
 var { adaptColor } = require('../../../styles/colors');
+var { useT } = require('../../../context/I18nContext');
 
 var SECTIONS = [
   {
@@ -50,11 +52,19 @@ var SECTIONS = [
 
 function usePrivacyPolicyScreen() {
   var navigation = useNavigation();
-  var t = function (key) { return key; };
+  var { t } = useT();
+  var [mounted, setMounted] = useState(false);
+
+  useEffect(function () {
+    setTimeout(function () {
+      setMounted(true);
+    }, 50);
+  }, []);
 
   return {
     navigation: navigation,
     t: t,
+    mounted: mounted,
     SECTIONS: SECTIONS,
     adaptColor: adaptColor,
   };

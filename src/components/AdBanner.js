@@ -69,7 +69,7 @@ var AdBanner = function (props) {
   // Apple 5.5: Check onboarding + first session + blocked screens
   useEffect(function () {
     // No ads during onboarding
-    if (auth.user && auth.user.hasOnboarded === false) {
+    if (auth.user && auth.user.onboardingCompleted === false) {
       setBlockedByPolicy(true);
       return;
     }

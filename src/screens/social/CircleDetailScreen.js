@@ -24,6 +24,7 @@ var GlassHeader = require('../../components/shared/GlassHeader');
 var GlassCard = require('../../components/shared/GlassCard');
 var Avatar = require('../../components/shared/Avatar');
 var Icon = require('react-native-vector-icons/Feather').default;
+var { useAuth } = require('../../context/AuthContext');
 var { COLORS, SPACING, RADIUS, CONTACT_COLORS } = require('../../theme/tokens');
 var { BRAND, catSolid } = require('../../styles/colors');
 
@@ -53,6 +54,7 @@ var CircleDetailScreen = function () {
   var navigation = useNavigation();
   var route = useRoute();
   var id = route.params && route.params.circleId;
+  var { user } = useAuth();
   var qc = useQueryClient();
   var [activeTab, setActiveTab] = useState('feed');
   var [newPost, setNewPost] = useState('');
@@ -65,12 +67,19 @@ var CircleDetailScreen = function () {
     },
     enabled: !!id,
   });
-  var circle = circleQuery.data || {};
+  var rawData = circleQuery.data || {};
+  var circle = rawData.circle || rawData;
   var members = circle.members || [];
-  var isMember = circle.isMember || false;
+  var rawIsMember = circle.isMember != null ? circle.isMember : circle.is_member;
+  var isMember =
+    rawIsMember != null
+      ? !!rawIsMember
+      : members.some(function (m) {
+          return String((m.user || m).id) === String(user && user.id);
+        });
   var myRole = (function () {
     var me = members.find(function (m) {
-      return m.isCurrentUser;
+      return String((m.user || m).id) === String(user && user.id);
     });
     return me ? me.role : null;
   })();
@@ -184,7 +193,7 @@ var CircleDetailScreen = function () {
           React.createElement(
             Text,
             { style: styles.postTime },
-            post.createdAt ? new Date(post.createdAt).toLocaleDateString() : '',
+            (post.createdAt || post.created_at) ? new Date(post.createdAt || post.created_at).toLocaleDateString() : '',
           ),
         ),
       ),
@@ -207,23 +216,23 @@ var CircleDetailScreen = function () {
             },
             accessible: true,
             accessibilityRole: 'button',
-            accessibilityLabel: 'Like, ' + (post.reactionCount || post.reactionsCount || 0) + ' reactions',
+            accessibilityLabel: 'Like, ' + (post.reactionCount || post.reactionsCount || post.reaction_count || post.reactions_count || 0) + ' reactions',
           },
           React.createElement(Icon, { name: 'heart', size: 16, color: COLORS.textSecondary }),
           React.createElement(
             Text,
             { style: styles.postActionText, accessible: false },
-            String(post.reactionCount || post.reactionsCount || 0),
+            String(post.reactionCount || post.reactionsCount || post.reaction_count || post.reactions_count || 0),
           ),
         ),
         React.createElement(
           TouchableOpacity,
-          { style: styles.postActionBtn, accessible: true, accessibilityRole: 'button', accessibilityLabel: 'Comments, ' + (post.commentCount || 0) },
+          { style: styles.postActionBtn, accessible: true, accessibilityRole: 'button', accessibilityLabel: 'Comments, ' + (post.commentCount || post.comment_count || post.commentsCount || post.comments_count || 0) },
           React.createElement(Icon, { name: 'message-circle', size: 16, color: COLORS.textSecondary }),
           React.createElement(
             Text,
             { style: styles.postActionText, accessible: false },
-            String(post.commentCount || 0),
+            String(post.commentCount || post.comment_count || post.commentsCount || post.comments_count || 0),
           ),
         ),
       ),
@@ -269,7 +278,7 @@ var CircleDetailScreen = function () {
 
   var renderChallenge = useCallback(function (info) {
     var ch = info.item;
-    var isJoined = ch.isJoined || false;
+    var isJoined = ch.isJoined != null ? ch.isJoined : (ch.is_joined || false);
 
     return React.createElement(
       GlassCard,

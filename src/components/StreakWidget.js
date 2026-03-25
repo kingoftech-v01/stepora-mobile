@@ -20,8 +20,8 @@ var {
   StyleSheet,
   Dimensions,
 } = require('react-native');
-var { useQuery } = require('@tanstack/react-query');
-var { apiGet } = require('../services/api');
+var { useQuery, useMutation, useQueryClient } = require('@tanstack/react-query');
+var { apiGet, apiPost } = require('../services/api');
 var { USERS } = require('../services/endpoints');
 var { COLORS, SPACING, RADIUS } = require('../theme/tokens');
 var { BRAND } = require('../styles/colors');
@@ -98,6 +98,17 @@ var StreakWidget = function (props) {
   });
 
   var data = streakQuery.data;
+
+  // ── Streak Freeze Mutation ──
+  var qc = useQueryClient();
+  var freezeMut = useMutation({
+    mutationFn: function () {
+      return apiPost(USERS.STREAK_FREEZE);
+    },
+    onSuccess: function () {
+      qc.invalidateQueries({ queryKey: ['streak-details'] });
+    },
+  });
 
   // ── Start animations on mount ──
   useEffect(function () {
@@ -402,7 +413,25 @@ var StreakWidget = function (props) {
                 style: dotStyle,
               });
             })
-          )
+          ),
+
+          // ── Streak Freeze Button ──
+          streakFrozen && freezeAvailable && !freezeMut.isSuccess
+            ? React.createElement(TouchableOpacity, {
+                style: styles.freezeBtn,
+                onPress: function () { freezeMut.mutate(); },
+                disabled: freezeMut.isPending,
+                activeOpacity: 0.8,
+                accessible: true,
+                accessibilityRole: 'button',
+                accessibilityLabel: freezeMut.isPending ? 'Activating streak freeze' : 'Use Streak Freeze',
+              },
+                React.createElement(Icon, { name: 'shield', size: 14, color: '#3B82F6' }),
+                React.createElement(Text, { style: styles.freezeBtnText },
+                  freezeMut.isPending ? 'Activating...' : 'Use Streak Freeze'
+                )
+              )
+            : null
         )
       )
     )
@@ -667,6 +696,24 @@ var styles = StyleSheet.create({
   dotToday: {
     borderWidth: 2,
     borderColor: 'rgba(249,115,22,0.6)',
+  },
+  freezeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: 14,
+    width: '100%',
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(59,130,246,0.25)',
+    backgroundColor: 'rgba(59,130,246,0.08)',
+  },
+  freezeBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#3B82F6',
   },
 });
 

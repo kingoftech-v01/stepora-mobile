@@ -178,6 +178,8 @@ var useDreamCreateScreen = function () {
       .then(function (dream) {
         setSubmitting(false);
         queryClient.invalidateQueries({ queryKey: ['dreams'] });
+        queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+        queryClient.invalidateQueries({ queryKey: ['calendar-today'] });
         navigation.navigate('Calibration', { id: dream.id });
       })
       .catch(function (err) {
@@ -242,8 +244,14 @@ var useDreamCreateScreen = function () {
     setTimeframe('custom');
   }
 
+  var navigateBack = function () {
+    // Navigate to home instead of goBack — matches web behavior
+    navigation.reset({ index: 0, routes: [{ name: 'MainTabs' }] });
+  };
+
   return {
     navigation: navigation,
+    navigateBack: navigateBack,
     step: step,
     setStep: setStep,
     STEPS: STEPS,

@@ -96,9 +96,9 @@ var SharedCalendarViewScreen = function () {
   var [viewM, setViewM] = useState(now.getMonth());
   var [selDay, setSelDay] = useState(null);
   var [suggestModal, setSuggestModal] = useState(false);
-  var [suggestTitle, setSuggestTitle] = useState('');
   var [suggestDate, setSuggestDate] = useState('');
-  var [suggestTime, setSuggestTime] = useState('');
+  var [suggestStartTime, setSuggestStartTime] = useState('10:00');
+  var [suggestEndTime, setSuggestEndTime] = useState('11:00');
   var [suggestNote, setSuggestNote] = useState('');
 
   // ─── Fetch shared calendar data ───────────────────────────────
@@ -112,6 +112,8 @@ var SharedCalendarViewScreen = function () {
       return apiGet(CALENDAR.SHARING.SHARED_WITH_ME);
     },
     enabled: !!shareToken || !!shareId,
+    staleTime: 60000,
+    retry: 1,
   });
 
   // Extract data from the query
@@ -208,36 +210,38 @@ var SharedCalendarViewScreen = function () {
     setSelDay(now.getDate());
   };
 
-  // ─── Suggest time/event ───────────────────────────────────────
+  // ─── Suggest time mutation ───────────────────────────────────
+  var suggestMut = useMutation({
+    mutationFn: function (data) {
+      return apiPost(CALENDAR.SHARING.SUGGEST(shareToken), data);
+    },
+    onSuccess: function () {
+      Alert.alert('Suggestion sent', 'Your time suggestion has been sent to the calendar owner.');
+      queryClient.invalidateQueries({ queryKey: ['shared-calendar', shareToken] });
+      setSuggestModal(false);
+      setSuggestTitle('');
+      setSuggestDate('');
+      setSuggestStartTime('10:00');
+      setSuggestEndTime('11:00');
+      setSuggestNote('');
+    },
+    onError: function (err) {
+      Alert.alert(
+        'Error',
+        (err && err.userMessage) || (err && err.message) || 'Failed to send suggestion'
+      );
+    },
+  });
+
   var handleSuggest = useCallback(function () {
-    if (!suggestTitle.trim()) {
-      Alert.alert('Title required', 'Please enter a title for your suggestion.');
+    if (!suggestDate || !suggestStartTime || !suggestEndTime) {
+      Alert.alert('Required', 'Please fill in all time fields.');
       return;
     }
-
-    var payload = {
-      title: suggestTitle.trim(),
-      date: suggestDate || null,
-      time: suggestTime || null,
-      note: suggestNote || null,
-    };
-
-    apiPost(CALENDAR.SHARING.SUGGEST(shareToken), payload)
-      .then(function () {
-        setSuggestModal(false);
-        setSuggestTitle('');
-        setSuggestDate('');
-        setSuggestTime('');
-        setSuggestNote('');
-        Alert.alert('Suggestion sent', 'Your time suggestion has been sent to the calendar owner.');
-      })
-      .catch(function (err) {
-        Alert.alert(
-          'Error',
-          (err && err.userMessage) || (err && err.message) || 'Failed to send suggestion'
-        );
-      });
-  }, [shareToken, suggestTitle, suggestDate, suggestTime, suggestNote]);
+    var startISO = suggestDate + 'T' + suggestStartTime + ':00Z';
+    var endISO = suggestDate + 'T' + suggestEndTime + ':00Z';
+    suggestMut.mutate({ suggestedStart: startISO, suggestedEnd: endISO, note: suggestNote });
+  }, [shareToken, suggestDate, suggestStartTime, suggestEndTime, suggestNote]);
 
   // ─── Accept/decline shared event ──────────────────────────────
   var handleEventAction = useCallback(function (eventId, action) {
@@ -345,9 +349,9 @@ var SharedCalendarViewScreen = function () {
           {
             style: styles.headerBtn,
             onPress: function () {
-              setSuggestTitle('');
               setSuggestDate('');
-              setSuggestTime('');
+              setSuggestStartTime('10:00');
+              setSuggestEndTime('11:00');
               setSuggestNote('');
               setSuggestModal(true);
             },
@@ -669,8 +673,8 @@ var SharedCalendarViewScreen = function () {
             dateStr = getKey(viewY, viewM, selDay);
           }
           setSuggestDate(dateStr);
-          setSuggestTitle('');
-          setSuggestTime('');
+          setSuggestStartTime('10:00');
+          setSuggestEndTime('11:00');
           setSuggestNote('');
           setSuggestModal(true);
         },
@@ -720,18 +724,6 @@ var SharedCalendarViewScreen = function () {
             'Send a suggestion to the calendar owner.'
           ),
 
-          // Title
-          React.createElement(Text, { style: styles.modalLabel }, 'Event Title'),
-          React.createElement(TextInput, {
-            style: styles.modalInput,
-            value: suggestTitle,
-            onChangeText: setSuggestTitle,
-            placeholder: 'e.g. Coffee meetup',
-            placeholderTextColor: COLORS.textMuted,
-            autoFocus: true,
-            accessible: true, accessibilityLabel: 'Event title',
-          }),
-
           // Date
           React.createElement(Text, { style: styles.modalLabel }, 'Suggested Date'),
           React.createElement(TextInput, {
@@ -743,15 +735,26 @@ var SharedCalendarViewScreen = function () {
             accessible: true, accessibilityLabel: 'Suggested date',
           }),
 
-          // Time
-          React.createElement(Text, { style: styles.modalLabel }, 'Suggested Time'),
+          // Start Time
+          React.createElement(Text, { style: styles.modalLabel }, 'Start Time'),
           React.createElement(TextInput, {
             style: styles.modalInput,
-            value: suggestTime,
-            onChangeText: setSuggestTime,
-            placeholder: '2:00 PM',
+            value: suggestStartTime,
+            onChangeText: setSuggestStartTime,
+            placeholder: '10:00',
             placeholderTextColor: COLORS.textMuted,
-            accessible: true, accessibilityLabel: 'Suggested time',
+            accessible: true, accessibilityLabel: 'Start time',
+          }),
+
+          // End Time
+          React.createElement(Text, { style: styles.modalLabel }, 'End Time'),
+          React.createElement(TextInput, {
+            style: styles.modalInput,
+            value: suggestEndTime,
+            onChangeText: setSuggestEndTime,
+            placeholder: '11:00',
+            placeholderTextColor: COLORS.textMuted,
+            accessible: true, accessibilityLabel: 'End time',
           }),
 
           // Note
@@ -784,10 +787,10 @@ var SharedCalendarViewScreen = function () {
             React.createElement(
               TouchableOpacity,
               {
-                style: [styles.modalSubmitBtn, !suggestTitle.trim() && { opacity: 0.5 }],
+                style: [styles.modalSubmitBtn, (!suggestDate || !suggestStartTime || !suggestEndTime) && { opacity: 0.5 }],
                 onPress: handleSuggest,
-                disabled: !suggestTitle.trim(),
-                accessible: true, accessibilityRole: 'button', accessibilityLabel: 'Send suggestion', accessibilityState: { disabled: !suggestTitle.trim() },
+                disabled: !suggestDate || !suggestStartTime || !suggestEndTime || suggestMut.isPending,
+                accessible: true, accessibilityRole: 'button', accessibilityLabel: 'Send suggestion', accessibilityState: { disabled: !suggestDate || !suggestStartTime || !suggestEndTime },
               },
               React.createElement(Icon, {
                 name: 'send',

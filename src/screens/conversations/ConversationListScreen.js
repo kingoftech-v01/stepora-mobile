@@ -1,6 +1,7 @@
 /**
- * ConversationListScreen — List of all conversations (AI chats).
- * Uses FlatList for performant scrolling.
+ * ConversationListScreen — List of friend chat conversations.
+ * Uses FRIEND_CHAT endpoints (not AI_CHAT). Simple list, tapping navigates to chat.
+ * Synced with web: useMessagesScreen.js pattern.
  */
 var React = require('react');
 var { useState, useCallback } = React;
@@ -16,7 +17,7 @@ var {
 var { useNavigation } = require('@react-navigation/native');
 var { useQuery, useQueryClient } = require('@tanstack/react-query');
 var { apiGet, apiPost } = require('../../services/api');
-var { CONVERSATIONS } = require('../../services/endpoints');
+var { FRIEND_CHAT, SOCIAL } = require('../../services/endpoints');
 var ScreenShell = require('../../components/shared/ScreenShell');
 var GlassHeader = require('../../components/shared/GlassHeader');
 var Avatar = require('../../components/shared/Avatar');
@@ -28,11 +29,13 @@ var { COLORS, SPACING, RADIUS, CONTACT_COLORS } = require('../../theme/tokens');
 
 var timeAgo = function (d) {
   if (!d) return '';
-  var s = Math.floor((Date.now() - new Date(d).getTime()) / 1000);
+  var date = d instanceof Date ? d : new Date(d);
+  var s = Math.floor((Date.now() - date.getTime()) / 1000);
   if (s < 60) return 'now';
   if (s < 3600) return Math.floor(s / 60) + 'm';
   if (s < 86400) return Math.floor(s / 3600) + 'h';
-  return Math.floor(s / 86400) + 'd';
+  if (s < 604800) return Math.floor(s / 86400) + 'd';
+  return Math.floor(s / 604800) + 'w';
 };
 
 var avatarColor = function (name) {
@@ -50,10 +53,12 @@ var ConversationListScreen = function () {
   var newChatRef = React.useRef(null);
   var tooltipCfg = getTooltipConfig('ConversationListScreen');
 
+  // Fetch FRIEND conversations (not AI chats)
+  var friendUrl = FRIEND_CHAT.LIST + (searchText ? '?search=' + encodeURIComponent(searchText) : '');
   var conversationsQuery = useQuery({
-    queryKey: ['conversations'],
+    queryKey: ['friend-conversations', searchText],
     queryFn: function () {
-      return apiGet(CONVERSATIONS.LIST);
+      return apiGet(friendUrl);
     },
   });
 
@@ -61,34 +66,51 @@ var ConversationListScreen = function () {
     var data = conversationsQuery.data;
     var list = (data && data.results) || data || [];
     if (!Array.isArray(list)) return [];
-    return list;
+    return list.map(function (c) {
+      return Object.assign({}, c, {
+        updatedAt: c.updatedAt ? new Date(c.updatedAt) : new Date(),
+        unread: c.unreadCount || c.unread || 0,
+      });
+    });
   })();
 
-  var filtered = conversations.filter(function (c) {
-    if (!searchText) return true;
-    var name = c.title || c.name || c.otherUser || '';
-    return name.toLowerCase().indexOf(searchText.toLowerCase()) !== -1;
+  // Call history for missed call badge
+  var callHistoryQuery = useQuery({
+    queryKey: ['call-history'],
+    queryFn: function () {
+      return apiGet(FRIEND_CHAT.CALLS.HISTORY);
+    },
   });
 
   var handleConversationPress = useCallback(function (conv) {
     // Mark as read
-    if (conv.id && conv.unreadCount > 0) {
-      apiPost(CONVERSATIONS.MARK_READ(conv.id)).catch(function () {});
-      queryClient.invalidateQueries({ queryKey: ['conversations'] });
+    if (conv.id && (conv.unreadCount || conv.unread) > 0) {
+      apiPost(FRIEND_CHAT.MARK_READ(conv.id)).catch(function () {});
+      queryClient.invalidateQueries({ queryKey: ['friend-conversations'] });
     }
+    // Navigate to friend chat with conversation ID
+    // Extract target user info for the header
+    var tu = conv.targetUser || conv.target_user || {};
+    var name = tu.displayName || tu.display_name || conv.title || conv.name || 'Chat';
+    // Strip "Chat with " prefix like web does
+    name = name.replace(/^Chat with\s+/i, '');
     navigation.navigate('Chat', {
       conversationId: conv.id,
-      title: conv.title || conv.name || 'Chat',
+      friendId: tu.id || null,
+      title: name,
     });
   }, [navigation, queryClient]);
 
   var renderItem = useCallback(function (info) {
     var item = info.item;
-    var name = item.title || item.name || item.otherUserDisplayName || 'Conversation';
+    // Use target user's display_name (friend's profile name, NOT buddy pairing name)
+    var tu = item.targetUser || item.target_user || {};
+    var name = tu.displayName || tu.display_name || item.title || item.name || item.otherUserDisplayName || 'Conversation';
+    // Strip "Chat with " prefix
+    name = name.replace(/^Chat with\s+/i, '');
     var lastMsg = item.lastMessage || item.lastMessagePreview || '';
     var time = item.lastMessageAt || item.updatedAt || '';
-    var unread = item.unreadCount || 0;
-    var isPinned = item.isPinned || false;
+    var unread = item.unreadCount || item.unread || 0;
 
     return React.createElement(
       TouchableOpacity,
@@ -100,7 +122,7 @@ var ConversationListScreen = function () {
         },
         accessible: true,
         accessibilityRole: 'button',
-        accessibilityLabel: name + (unread > 0 ? ', ' + unread + ' unread messages' : '') + (isPinned ? ', pinned' : '') + (typeof lastMsg === 'string' && lastMsg ? ', ' + lastMsg : '') + (time ? ', ' + timeAgo(time) : ''),
+        accessibilityLabel: name + (unread > 0 ? ', ' + unread + ' unread messages' : '') + (typeof lastMsg === 'string' && lastMsg ? ', ' + lastMsg : '') + (time ? ', ' + timeAgo(time) : ''),
       },
       // Avatar
       React.createElement(
@@ -108,12 +130,12 @@ var ConversationListScreen = function () {
         { style: styles.avatarWrap },
         React.createElement(Avatar, {
           name: name,
-          src: item.avatar || item.otherUserAvatar,
+          src: tu.avatar || tu.avatarUrl || item.otherUserAvatar || item.avatar,
           size: 50,
           color: avatarColor(name),
         }),
         // Online indicator
-        item.isOnline
+        (tu.isOnline || item.isOnline)
           ? React.createElement(View, { style: styles.onlineDot })
           : null,
       ),
@@ -124,14 +146,6 @@ var ConversationListScreen = function () {
         React.createElement(
           View,
           { style: styles.convTopRow },
-          isPinned
-            ? React.createElement(Icon, {
-                name: 'bookmark',
-                size: 12,
-                color: COLORS.purple,
-                style: { marginRight: 4 },
-              })
-            : null,
           React.createElement(
             Text,
             { style: [styles.convName, unread > 0 && styles.convNameUnread], numberOfLines: 1 },
@@ -185,7 +199,7 @@ var ConversationListScreen = function () {
       React.createElement(
         Text,
         { style: styles.emptySubtitle },
-        'Start a chat with friends or the AI assistant',
+        'Start a chat with friends',
       ),
     );
   };
@@ -197,6 +211,13 @@ var ConversationListScreen = function () {
       React.createElement(GlassHeader, {
         title: 'Messages',
         rightActions: [
+          {
+            icon: 'clock',
+            label: 'Call history',
+            onPress: function () {
+              navigation.navigate('CallHistory');
+            },
+          },
           {
             icon: 'edit',
             label: 'New conversation',
@@ -254,10 +275,10 @@ var ConversationListScreen = function () {
           React.createElement(ActivityIndicator, { size: 'large', color: COLORS.purple, accessibilityLabel: 'Loading conversations' }),
         )
       : React.createElement(FlatList, {
-          data: filtered,
+          data: conversations,
           renderItem: renderItem,
           keyExtractor: keyExtractor,
-          contentContainerStyle: filtered.length === 0 ? { flex: 1 } : { paddingBottom: 100 },
+          contentContainerStyle: conversations.length === 0 ? { flex: 1 } : { paddingBottom: 100 },
           ListEmptyComponent: renderEmpty,
           onRefresh: function () {
             conversationsQuery.refetch();

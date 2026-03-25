@@ -61,6 +61,12 @@ var useDreamTemplatesScreen = function () {
       ? rawTemplates.results
       : [];
 
+  var DIFFICULTY_CONFIG = {
+    beginner: { label: 'Beginner', color: '#10B981', bg: 'rgba(16,185,129,0.12)', border: 'rgba(16,185,129,0.25)' },
+    intermediate: { label: 'Intermediate', color: '#FCD34D', bg: 'rgba(252,211,77,0.12)', border: 'rgba(252,211,77,0.25)' },
+    advanced: { label: 'Advanced', color: '#EF4444', bg: 'rgba(239,68,68,0.12)', border: 'rgba(239,68,68,0.25)' },
+  };
+
   var rawFeatured = featuredQuery.data;
   var featured = Array.isArray(rawFeatured)
     ? rawFeatured
@@ -134,6 +140,7 @@ var useDreamTemplatesScreen = function () {
     CAT_EMOJIS: CAT_EMOJIS,
     catSolid: catSolid,
     CATEGORIES: CATEGORIES,
+    DIFFICULTY_CONFIG: DIFFICULTY_CONFIG,
   };
 };
 

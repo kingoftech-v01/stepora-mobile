@@ -17,6 +17,11 @@ var VARIANTS = {
     text: COLORS.text,
     border: COLORS.glassBorder,
   },
+  ghost: {
+    bg: 'transparent',
+    text: COLORS.purple,
+    border: 'transparent',
+  },
   success: {
     bg: 'rgba(16,185,129,0.15)',
     text: BRAND.greenSolid,

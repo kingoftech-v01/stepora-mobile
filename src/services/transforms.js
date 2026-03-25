@@ -16,7 +16,7 @@ function toSnake(str) {
 export function snakeToCamel(obj) {
   if (obj === null || obj === undefined || typeof obj !== 'object') return obj;
   if (Array.isArray(obj)) return obj.map(snakeToCamel);
-  if (obj instanceof Date) return obj;
+  if (obj instanceof Date || (typeof File !== 'undefined' && obj instanceof File) || (typeof Blob !== 'undefined' && obj instanceof Blob)) return obj;
   var out = {};
   for (var key in obj) {
     if (Object.prototype.hasOwnProperty.call(obj, key)) {
@@ -29,7 +29,7 @@ export function snakeToCamel(obj) {
 export function camelToSnake(obj) {
   if (obj === null || obj === undefined || typeof obj !== 'object') return obj;
   if (Array.isArray(obj)) return obj.map(camelToSnake);
-  if (obj instanceof Date) return obj;
+  if (obj instanceof Date || (typeof File !== 'undefined' && obj instanceof File) || (typeof Blob !== 'undefined' && obj instanceof Blob)) return obj;
   var out = {};
   for (var key in obj) {
     if (Object.prototype.hasOwnProperty.call(obj, key)) {

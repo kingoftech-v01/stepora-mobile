@@ -44,7 +44,7 @@ function ProfileScreen() {
         <TouchableOpacity onPress={function () { h.navigation.goBack(); }} accessible={true} accessibilityRole="button" accessibilityLabel="Go back">
           <Text style={styles.backText}>← Back</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle} accessibilityRole="header">Profile</Text>
+        <Text style={styles.headerTitle} accessibilityRole="header">{h.t('nav.profile')}</Text>
         <TouchableOpacity onPress={function () { h.navigation.navigate('Settings'); }} accessible={true} accessibilityRole="button" accessibilityLabel="Settings">
           <Text style={styles.settingsText}>⚙️</Text>
         </TouchableOpacity>
@@ -58,7 +58,7 @@ function ProfileScreen() {
           </Text>
         </View>
         <View style={styles.levelBadge} accessible={true} accessibilityLabel={'Level ' + h.level}>
-          <Text style={styles.levelBadgeText}>Lv{h.level}</Text>
+          <Text style={styles.levelBadgeText}>{h.t('profile.levelShort')}{h.level}</Text>
         </View>
         <TouchableOpacity
           style={styles.editAvatarBtn}
@@ -100,14 +100,14 @@ function ProfileScreen() {
                 <Text style={styles.miniEmoji}>🔥</Text>
               </View>
               <Text style={styles.miniValue} accessible={false}>{h.streak}</Text>
-              <Text style={styles.miniLabel} accessible={false}>Streak</Text>
+              <Text style={styles.miniLabel} accessible={false}>{h.t('profile.streak')}</Text>
             </View>
-            <View style={styles.miniStat} accessible={true} accessibilityLabel={(h.userStats.totalTasksCompleted || 0) + ' tasks completed'}>
+            <View style={styles.miniStat} accessible={true} accessibilityLabel={(h.userStats.total_tasks_completed || h.userStats.totalTasksCompleted || 0) + ' tasks completed'}>
               <View style={[styles.miniIcon, { backgroundColor: 'rgba(139,92,246,0.12)' }]} accessible={false}>
                 <Text style={styles.miniEmoji}>📈</Text>
               </View>
-              <Text style={styles.miniValue} accessible={false}>{h.userStats.totalTasksCompleted || 0}</Text>
-              <Text style={styles.miniLabel} accessible={false}>Tasks</Text>
+              <Text style={styles.miniValue} accessible={false}>{h.userStats.total_tasks_completed || h.userStats.totalTasksCompleted || 0}</Text>
+              <Text style={styles.miniLabel} accessible={false}>{h.t('profile.tasksDone')}</Text>
             </View>
           </View>
         </View>
@@ -115,6 +115,53 @@ function ProfileScreen() {
 
       {/* Activity Heatmap */}
       <CalendarHeatmap days={365} />
+
+      {/* Skills */}
+      {h.skills && h.skills.length > 0 ? (
+        <View style={styles.skillsCard}>
+          <Text style={styles.sectionTitle}>{h.t('profile.skillRadar')}</Text>
+          {h.skills.map(function (s, i) {
+            var prog = s.maxXp > 0 ? s.xp / s.maxXp : 0;
+            return (
+              <View key={i} style={i < h.skills.length - 1 ? { marginBottom: 12 } : null}>
+                <View style={styles.skillHeader}>
+                  <Text style={styles.skillLabel}>{s.label}</Text>
+                  <View style={[styles.skillLevelBadge, { backgroundColor: s.color + '12' }]}>
+                    <Text style={[styles.skillLevelText, { color: s.color }]}>{h.t('profile.levelShort')}{s.level}</Text>
+                  </View>
+                </View>
+                <View style={styles.skillTrack}>
+                  <View style={[styles.skillFill, { width: (prog * 100) + '%', backgroundColor: s.color }]} />
+                </View>
+              </View>
+            );
+          })}
+        </View>
+      ) : null}
+
+      {/* Achievements */}
+      {h.achievements && h.achievements.length > 0 ? (
+        <View style={styles.achievementsCard}>
+          <View style={styles.achievementsHeader}>
+            <Text style={styles.sectionTitle}>{h.t('profile.achievements')}</Text>
+            <TouchableOpacity onPress={function () { h.navigation.navigate('Achievements'); }}>
+              <Text style={styles.seeAllText}>{h.t('profile.seeAll')}</Text>
+            </TouchableOpacity>
+          </View>
+          <View style={styles.badgesRow}>
+            {h.achievements.map(function (a, i) {
+              return (
+                <View key={i} style={styles.badgeItem}>
+                  <View style={[styles.badgeIcon, { backgroundColor: a.color + '10', borderColor: a.color + '15' }]}>
+                    <Text style={{ fontSize: 20 }}>🏆</Text>
+                  </View>
+                  <Text style={styles.badgeLabel} numberOfLines={2}>{a.label}</Text>
+                </View>
+              );
+            })}
+          </View>
+        </View>
+      ) : null}
 
       {/* Menu items */}
       <View style={styles.menuCard}>
@@ -144,9 +191,18 @@ function ProfileScreen() {
         })}
       </View>
 
+      {/* Renew date */}
+      {h.isPremium && h.renewDate ? (
+        <View style={{ alignItems: 'center', marginBottom: 8 }}>
+          <Text style={{ fontSize: 12, color: dark.textMuted }}>
+            {h.subscriptionLabel} {h.t('profile.renews')} {h.renewDate}
+          </Text>
+        </View>
+      ) : null}
+
       {/* Sign out */}
-      <TouchableOpacity style={styles.signOutBtn} onPress={h.handleSignOut} activeOpacity={0.7} accessible={true} accessibilityRole="button" accessibilityLabel="Sign Out">
-        <Text style={styles.signOutText}>🚪 Sign Out</Text>
+      <TouchableOpacity style={styles.signOutBtn} onPress={h.handleSignOut} activeOpacity={0.7} accessible={true} accessibilityRole="button" accessibilityLabel={h.t('settings.signOut')}>
+        <Text style={styles.signOutText}>{h.t('settings.signOut')}</Text>
       </TouchableOpacity>
 
       <View style={{ height: 32 }} />
@@ -208,6 +264,23 @@ var styles = StyleSheet.create({
   chevron: { fontSize: 20, color: dark.textMuted },
   signOutBtn: { height: 48, borderRadius: 14, backgroundColor: 'rgba(239,68,68,0.08)', borderWidth: 1, borderColor: 'rgba(239,68,68,0.2)', alignItems: 'center', justifyContent: 'center', marginTop: 10 },
   signOutText: { fontSize: 15, fontWeight: '600', color: BRAND.redSolid },
+  // Skills
+  skillsCard: { backgroundColor: dark.glassBg, borderRadius: 20, borderWidth: 1, borderColor: dark.glassBorder, padding: 18, marginBottom: 10 },
+  sectionTitle: { fontSize: 14, fontWeight: '700', color: dark.text, marginBottom: 14 },
+  skillHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 },
+  skillLabel: { fontSize: 12, fontWeight: '600', color: dark.text },
+  skillLevelBadge: { paddingHorizontal: 6, paddingVertical: 1, borderRadius: 5 },
+  skillLevelText: { fontSize: 11, fontWeight: '700' },
+  skillTrack: { height: 4, borderRadius: 2, backgroundColor: dark.surface, overflow: 'hidden' },
+  skillFill: { height: '100%', borderRadius: 2 },
+  // Achievements
+  achievementsCard: { backgroundColor: dark.glassBg, borderRadius: 20, borderWidth: 1, borderColor: dark.glassBorder, padding: 18, marginBottom: 10 },
+  achievementsHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
+  seeAllText: { fontSize: 12, color: BRAND.purpleLight, fontWeight: '500' },
+  badgesRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  badgeItem: { alignItems: 'center', width: 60 },
+  badgeIcon: { width: 46, height: 46, borderRadius: 14, borderWidth: 1, alignItems: 'center', justifyContent: 'center', marginBottom: 5 },
+  badgeLabel: { fontSize: 10, fontWeight: '500', textAlign: 'center', color: dark.textSecondary, lineHeight: 12 },
 });
 
 module.exports = ProfileScreen;

@@ -1,18 +1,25 @@
 /**
  * useAppVersionScreen -- business logic for App Version & Info (React Native).
+ * Synced with web app's useAppVersionScreen.js.
  */
 var { useState, useEffect, useCallback } = require('react');
 var { useNavigation } = require('@react-navigation/native');
 var { Platform, Linking, Alert } = require('react-native');
 var { apiGet } = require('../../../services/api');
-var { APP_UPDATES } = require('../../../services/endpoints');
+var { USERS, APP_UPDATES } = require('../../../services/endpoints');
+var { useT } = require('../../../context/I18nContext');
+var { useToast } = require('../../../context/ToastContext');
+var { BRAND, adaptColor } = require('../../../styles/colors');
 
 var APP_VERSION = '1.0.0';
 var BUILD_NUMBER = '1';
 
 function useAppVersionScreen() {
   var navigation = useNavigation();
+  var { t } = useT();
+  var { showToast } = useToast();
 
+  var [mounted, setMounted] = useState(false);
   var [checking, setChecking] = useState(false);
   var [updateAvailable, setUpdateAvailable] = useState(false);
   var [latestVersion, setLatestVersion] = useState('');
@@ -20,13 +27,17 @@ function useAppVersionScreen() {
   var [loadingChangelog, setLoadingChangelog] = useState(true);
   var [error, setError] = useState('');
 
-  // ─── System info ──────────────────────────────────────────
-  var systemInfo = [
-    { label: 'App Version', value: APP_VERSION },
-    { label: 'Build Number', value: BUILD_NUMBER },
-    { label: 'Platform', value: Platform.OS === 'ios' ? 'iOS' : 'Android' },
-    { label: 'OS Version', value: Platform.OS + ' ' + Platform.Version },
-    { label: 'Device', value: Platform.OS === 'ios' ? 'iPhone' : 'Android Device' },
+  useEffect(function () {
+    setTimeout(function () { setMounted(true); }, 50);
+  }, []);
+
+  // ─── System info (matches web's infoItems pattern) ──────
+  var infoItems = [
+    { label: t('appVersion.platform') || 'Platform', value: Platform.OS === 'ios' ? 'iOS' : 'Android' },
+    { label: t('appVersion.version') || 'App Version', value: APP_VERSION },
+    { label: 'Build', value: BUILD_NUMBER },
+    { label: t('appVersion.osVersion') || 'OS Version', value: Platform.OS + ' ' + Platform.Version },
+    { label: t('appVersion.environment') || 'Environment', value: t('appVersion.production') || 'Production' },
   ];
 
   // ─── Changelog / Release notes ────────────────────────────
@@ -67,19 +78,17 @@ function useAppVersionScreen() {
         setChecking(false);
         setLoadingChangelog(false);
         if (!data || !data.latestVersion || data.latestVersion === APP_VERSION) {
-          Alert.alert('Up to Date', 'You are running the latest version of Stepora.');
+          showToast(t('appVersion.upToDate') || 'You are running the latest version.', 'success');
         }
       })
       .catch(function (err) {
         setChecking(false);
         setLoadingChangelog(false);
-        // Not critical — just show default changelog
         if (changelog.length === 0) {
           setChangelog(DEFAULT_CHANGELOG);
         }
-        // Only show error for explicit check, not initial load
         if (err.status !== 404) {
-          setError(err.message || 'Could not check for updates');
+          setError(err.userMessage || err.message || 'Could not check for updates');
         }
       });
   }, []);
@@ -112,19 +121,19 @@ function useAppVersionScreen() {
       ? 'https://apps.apple.com/app/stepora/id000000000'
       : 'https://play.google.com/store/apps/details?id=app.stepora.mobile';
     Linking.openURL(storeUrl).catch(function () {
-      Alert.alert('Error', 'Could not open store page.');
+      showToast(t('appVersion.cantOpenStore') || 'Could not open store page.', 'error');
     });
   };
 
   var handleReportBug = function () {
     Linking.openURL('mailto:support@stepora.app?subject=Bug%20Report%20-%20Stepora%20Mobile%20v' + APP_VERSION).catch(function () {
-      Alert.alert('Error', 'Could not open email client.');
+      showToast(t('appVersion.cantOpenEmail') || 'Could not open email client.', 'error');
     });
   };
 
   var handleFeedback = function () {
     Linking.openURL('mailto:feedback@stepora.app?subject=Feedback%20-%20Stepora%20Mobile%20v' + APP_VERSION).catch(function () {
-      Alert.alert('Error', 'Could not open email client.');
+      showToast(t('appVersion.cantOpenEmail') || 'Could not open email client.', 'error');
     });
   };
 
@@ -133,12 +142,14 @@ function useAppVersionScreen() {
       ? 'https://apps.apple.com/app/stepora/id000000000'
       : 'https://play.google.com/store/apps/details?id=app.stepora.mobile';
     Linking.openURL(storeUrl).catch(function () {
-      Alert.alert('Error', 'Could not open store page.');
+      showToast(t('appVersion.cantOpenStore') || 'Could not open store page.', 'error');
     });
   };
 
   return {
     navigation: navigation,
+    t: t,
+    mounted: mounted,
     appVersion: APP_VERSION,
     buildNumber: BUILD_NUMBER,
     checking: checking,
@@ -147,12 +158,14 @@ function useAppVersionScreen() {
     changelog: changelog,
     loadingChangelog: loadingChangelog,
     error: error,
-    systemInfo: systemInfo,
+    infoItems: infoItems,
     checkForUpdates: checkForUpdates,
     handleRateApp: handleRateApp,
     handleReportBug: handleReportBug,
     handleFeedback: handleFeedback,
     handleUpdate: handleUpdate,
+    adaptColor: adaptColor,
+    BRAND: BRAND,
   };
 }
 

@@ -1,11 +1,9 @@
 /**
  * CallHistoryScreen — Call log showing past voice and video calls.
  *
- * - FlatList of past calls sorted by date
- * - Each entry: caller/callee avatar+name, call type (video/voice), duration, timestamp
- * - Missed calls highlighted in red
- * - Tap to call back (navigate to VideoCallScreen or VoiceCallScreen)
- * - Date section headers (Today, Yesterday, This Week, etc.)
+ * Uses FRIEND_CHAT.CALLS endpoints (not CONVERSATIONS.CALLS).
+ * Shows caller/callee info using user display_name from profile.
+ * Synced with web: useCallHistoryScreen.js pattern.
  */
 var React = require('react');
 var { useState, useCallback, useMemo } = React;
@@ -20,8 +18,8 @@ var {
 } = require('react-native');
 var { useNavigation } = require('@react-navigation/native');
 var { useQuery } = require('@tanstack/react-query');
-var { apiGet } = require('../../services/api');
-var { CONVERSATIONS } = require('../../services/endpoints');
+var { apiGet, apiPost } = require('../../services/api');
+var { FRIEND_CHAT } = require('../../services/endpoints');
 var ScreenShell = require('../../components/shared/ScreenShell');
 var GlassHeader = require('../../components/shared/GlassHeader');
 var Avatar = require('../../components/shared/Avatar');
@@ -39,95 +37,54 @@ var avatarColor = function (name) {
 };
 
 var formatDuration = function (seconds) {
-  if (!seconds || seconds <= 0) return '0:00';
-  var mins = Math.floor(seconds / 60);
-  var secs = seconds % 60;
-  if (mins >= 60) {
-    var hours = Math.floor(mins / 60);
-    mins = mins % 60;
-    return hours + ':' + (mins < 10 ? '0' : '') + mins + ':' + (secs < 10 ? '0' : '') + secs;
-  }
-  return mins + ':' + (secs < 10 ? '0' : '') + secs;
+  if (!seconds || seconds <= 0) return '';
+  var m = Math.floor(seconds / 60);
+  var s = seconds % 60;
+  return m > 0 ? m + 'm ' + s + 's' : s + 's';
 };
 
-var formatTimestamp = function (dateStr) {
+var formatDate = function (dateStr) {
   if (!dateStr) return '';
   var d = new Date(dateStr);
-  var hours = d.getHours();
-  var mins = d.getMinutes();
-  var ampm = hours >= 12 ? 'PM' : 'AM';
-  hours = hours % 12 || 12;
-  return hours + ':' + (mins < 10 ? '0' : '') + mins + ' ' + ampm;
+  var now = new Date();
+  var td = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  var cd = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  var diff = Math.floor((td - cd) / 86400000);
+  var time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  if (diff === 0) return 'Today ' + time;
+  if (diff === 1) return 'Yesterday ' + time;
+  if (diff < 7) return d.toLocaleDateString([], { weekday: 'short' }) + ' ' + time;
+  return d.toLocaleDateString([], { month: 'short', day: 'numeric' }) + ' ' + time;
 };
 
-/**
- * Categorize a date into section headers:
- * Today, Yesterday, This Week, Last Week, This Month, Older
- */
 var getDateSection = function (dateStr) {
   if (!dateStr) return 'Older';
   var d = new Date(dateStr);
   var now = new Date();
-
   var today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   var yesterday = new Date(today);
   yesterday.setDate(yesterday.getDate() - 1);
   var thisWeekStart = new Date(today);
   thisWeekStart.setDate(thisWeekStart.getDate() - today.getDay());
-  var lastWeekStart = new Date(thisWeekStart);
-  lastWeekStart.setDate(lastWeekStart.getDate() - 7);
-  var thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
   var callDate = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-
   if (callDate.getTime() >= today.getTime()) return 'Today';
   if (callDate.getTime() >= yesterday.getTime()) return 'Yesterday';
   if (callDate.getTime() >= thisWeekStart.getTime()) return 'This Week';
-  if (callDate.getTime() >= lastWeekStart.getTime()) return 'Last Week';
-  if (callDate.getTime() >= thisMonthStart.getTime()) return 'This Month';
   return 'Older';
-};
-
-/**
- * Determine call status from API data.
- * Returns: 'missed', 'incoming', 'outgoing'
- */
-var getCallStatus = function (call) {
-  if (call.status === 'missed' || call.isMissed) return 'missed';
-  if (call.status === 'rejected' || call.isRejected) return 'missed';
-  if (call.status === 'cancelled' || call.isCancelled) return 'missed';
-  if (call.direction === 'incoming' || call.isIncoming) return 'incoming';
-  return 'outgoing';
-};
-
-var getCallStatusIcon = function (status) {
-  if (status === 'missed') return 'phone-missed';
-  if (status === 'incoming') return 'phone-incoming';
-  return 'phone-outgoing';
-};
-
-var getCallStatusColor = function (status) {
-  if (status === 'missed') return COLORS.red;
-  if (status === 'incoming') return COLORS.green;
-  return COLORS.textSecondary;
-};
-
-var getCallerName = function (call) {
-  return call.callerName || call.calleeName || call.otherUserName ||
-    call.otherUserDisplayName || call.participantName || call.title || 'Unknown';
 };
 
 // ─── Main Screen ──────────────────────────────────────────────────
 
 var CallHistoryScreen = function () {
   var navigation = useNavigation();
-  var [filter, setFilter] = useState('all'); // 'all', 'missed', 'voice', 'video'
+  var [filter, setFilter] = useState('all');
 
-  // ─── Fetch call history ───────────────────────────────────────
+  // Fetch call history from FRIEND_CHAT.CALLS
   var callsQuery = useQuery({
     queryKey: ['call-history'],
     queryFn: function () {
-      return apiGet(CONVERSATIONS.CALLS.HISTORY);
+      return apiGet(FRIEND_CHAT.CALLS.HISTORY);
     },
   });
 
@@ -135,7 +92,6 @@ var CallHistoryScreen = function () {
     var data = callsQuery.data;
     var list = (data && data.results) || data || [];
     if (!Array.isArray(list)) return [];
-    // Sort by date descending (most recent first)
     return list.slice().sort(function (a, b) {
       var dateA = new Date(a.createdAt || a.startedAt || a.timestamp || 0).getTime();
       var dateB = new Date(b.createdAt || b.startedAt || b.timestamp || 0).getTime();
@@ -143,12 +99,12 @@ var CallHistoryScreen = function () {
     });
   }, [callsQuery.data]);
 
-  // ─── Apply filter ─────────────────────────────────────────────
+  // Apply filter
   var filteredCalls = useMemo(function () {
     if (filter === 'all') return allCalls;
     if (filter === 'missed') {
       return allCalls.filter(function (c) {
-        return getCallStatus(c) === 'missed';
+        return c.status === 'missed' || c.status === 'rejected' || c.status === 'cancelled';
       });
     }
     if (filter === 'voice') {
@@ -164,7 +120,7 @@ var CallHistoryScreen = function () {
     return allCalls;
   }, [allCalls, filter]);
 
-  // ─── Group by date section ────────────────────────────────────
+  // Group by date section
   var sectionsWithHeaders = useMemo(function () {
     var result = [];
     var lastSection = '';
@@ -184,20 +140,73 @@ var CallHistoryScreen = function () {
     return result;
   }, [filteredCalls]);
 
-  // ─── Handle callback ─────────────────────────────────────────
-  var handleCallBack = useCallback(function (call) {
-    var callType = call.callType || call.type || 'audio';
-    var isVideo = callType === 'video';
-    var conversationId = call.conversationId || call.conversation;
-    var name = getCallerName(call);
+  // Get call info (matching web pattern: uses callerId/calleeId)
+  var getCallInfo = function (call, userId) {
+    var isOutgoing = String(call.callerId) === String(userId);
+    var name = isOutgoing
+      ? call.calleeName || call.callerName || 'Unknown'
+      : call.callerName || call.calleeName || 'Unknown';
+    var isMissed = call.status === 'missed';
+    var isRejected = call.status === 'rejected';
+    var isCancelled = call.status === 'cancelled';
 
-    navigation.navigate(isVideo ? 'VideoCall' : 'VoiceCall', {
-      conversationId: conversationId,
-      title: name,
-    });
+    var iconName = 'phone-outgoing';
+    var color = COLORS.green || '#10B981';
+    var label = 'Outgoing';
+
+    if (!isOutgoing) {
+      if (isMissed) {
+        iconName = 'phone-missed';
+        color = COLORS.red;
+        label = 'Missed';
+      } else {
+        iconName = 'phone-incoming';
+        color = COLORS.blue || '#3B82F6';
+        label = 'Incoming';
+      }
+    } else {
+      if (isMissed || isCancelled) {
+        iconName = 'phone-missed';
+        color = COLORS.red;
+        label = isCancelled ? 'Cancelled' : 'No answer';
+      } else if (isRejected) {
+        iconName = 'phone-missed';
+        color = COLORS.red;
+        label = 'Declined';
+      }
+    }
+
+    return {
+      name: name,
+      iconName: iconName,
+      color: color,
+      label: label,
+      isOutgoing: isOutgoing,
+      buddyId: isOutgoing ? call.calleeId : call.callerId,
+    };
+  };
+
+  // Handle callback: initiate call via FRIEND_CHAT.CALLS
+  var handleCallBack = useCallback(function (call) {
+    var callType = call.callType || call.type || 'voice';
+    var isVideo = callType === 'video';
+    var buddyId = String(call.callerId) === String(call.calleeId) ? call.calleeId : call.callerId;
+    var name = call.callerName || call.calleeName || 'Unknown';
+
+    apiPost(FRIEND_CHAT.CALLS.INITIATE, { calleeId: buddyId, callType: callType })
+      .then(function (data) {
+        var newCallId = data.callId || data.id;
+        navigation.navigate(isVideo ? 'VideoCall' : 'VoiceCall', {
+          callId: newCallId,
+          friendName: name,
+        });
+      })
+      .catch(function (err) {
+        console.error('[CallHistory] callback failed:', err);
+      });
   }, [navigation]);
 
-  // ─── Render filter tabs ───────────────────────────────────────
+  // Render filter tabs
   var renderFilterTabs = function () {
     var tabs = [
       { key: 'all', label: 'All' },
@@ -205,6 +214,10 @@ var CallHistoryScreen = function () {
       { key: 'voice', label: 'Voice' },
       { key: 'video', label: 'Video' },
     ];
+
+    var missedCount = allCalls.filter(function (c) {
+      return c.status === 'missed' || c.status === 'rejected' || c.status === 'cancelled';
+    }).length;
 
     return React.createElement(
       View,
@@ -229,14 +242,14 @@ var CallHistoryScreen = function () {
             { style: [styles.filterTabText, isActive && styles.filterTabTextActive] },
             tab.label
           ),
-          tab.key === 'missed' && allCalls.filter(function (c) { return getCallStatus(c) === 'missed'; }).length > 0
+          tab.key === 'missed' && missedCount > 0
             ? React.createElement(
                 View,
                 { style: styles.missedBadge },
                 React.createElement(
                   Text,
                   { style: styles.missedBadgeText },
-                  String(allCalls.filter(function (c) { return getCallStatus(c) === 'missed'; }).length)
+                  String(missedCount)
                 )
               )
             : null
@@ -245,11 +258,10 @@ var CallHistoryScreen = function () {
     );
   };
 
-  // ─── Render call item or section header ───────────────────────
+  // Render call item or section header
   var renderItem = useCallback(function (info) {
     var item = info.item;
 
-    // Section header
     if (item.type === 'header') {
       return React.createElement(
         View,
@@ -262,15 +274,13 @@ var CallHistoryScreen = function () {
       );
     }
 
-    // Call entry
     var call = item.data;
-    var name = getCallerName(call);
+    var callInfo = getCallInfo(call);
     var callType = call.callType || call.type || 'audio';
     var isVideo = callType === 'video';
-    var status = getCallStatus(call);
-    var isMissed = status === 'missed';
+    var isMissed = call.status === 'missed' || call.status === 'rejected' || call.status === 'cancelled';
     var dateStr = call.createdAt || call.startedAt || call.timestamp;
-    var duration = call.duration || call.durationSeconds || 0;
+    var dur = call.duration || call.durationSeconds || 0;
 
     return React.createElement(
       TouchableOpacity,
@@ -282,17 +292,17 @@ var CallHistoryScreen = function () {
         },
         accessible: true,
         accessibilityRole: 'button',
-        accessibilityLabel: name + ', ' + (isVideo ? 'video' : 'voice') + ' call, ' + (isMissed ? 'missed' : status) + (!isMissed && duration > 0 ? ', ' + formatDuration(duration) : '') + ', ' + formatTimestamp(dateStr),
+        accessibilityLabel: callInfo.name + ', ' + (isVideo ? 'video' : 'voice') + ' call, ' + callInfo.label + (!isMissed && dur > 0 ? ', ' + formatDuration(dur) : ''),
       },
       // Avatar
       React.createElement(
         View,
         { style: styles.avatarWrap },
         React.createElement(Avatar, {
-          name: name,
-          src: call.callerAvatar || call.calleeAvatar || call.otherUserAvatar || call.avatar,
+          name: callInfo.name,
+          src: call.callerAvatar || call.calleeAvatar || call.avatar,
           size: 48,
-          color: avatarColor(name),
+          color: avatarColor(callInfo.name),
         })
       ),
 
@@ -300,7 +310,6 @@ var CallHistoryScreen = function () {
       React.createElement(
         View,
         { style: styles.callInfo },
-        // Name + call type icon
         React.createElement(
           View,
           { style: styles.callTopRow },
@@ -310,7 +319,7 @@ var CallHistoryScreen = function () {
               style: [styles.callName, isMissed && styles.callNameMissed],
               numberOfLines: 1,
             },
-            name
+            callInfo.name
           ),
           React.createElement(
             View,
@@ -318,47 +327,42 @@ var CallHistoryScreen = function () {
             React.createElement(Icon, {
               name: isVideo ? 'video' : 'phone',
               size: 10,
-              color: isVideo ? COLORS.blue : COLORS.textSecondary,
+              color: isVideo ? (COLORS.blue || '#3B82F6') : COLORS.textSecondary,
             })
           )
         ),
-        // Status, duration, time
         React.createElement(
           View,
           { style: styles.callBottomRow },
           React.createElement(Icon, {
-            name: getCallStatusIcon(status),
+            name: callInfo.iconName,
             size: 13,
-            color: getCallStatusColor(status),
+            color: callInfo.color,
             style: { marginRight: 4 },
           }),
           React.createElement(
             Text,
             { style: [styles.callStatusText, isMissed && styles.callStatusTextMissed] },
-            isMissed
-              ? 'Missed'
-              : status === 'incoming'
-                ? 'Incoming'
-                : 'Outgoing'
+            callInfo.label
           ),
-          !isMissed && duration > 0
+          !isMissed && dur > 0
             ? React.createElement(
                 Text,
                 { style: styles.callDuration },
-                ' \u00B7 ' + formatDuration(duration)
+                ' \u00B7 ' + formatDuration(dur)
               )
             : null
         )
       ),
 
-      // Timestamp + call back button
+      // Time + call back button
       React.createElement(
         View,
         { style: styles.callRight },
         React.createElement(
           Text,
           { style: [styles.callTime, isMissed && styles.callTimeMissed] },
-          formatTimestamp(dateStr)
+          formatDate(dateStr)
         ),
         React.createElement(
           TouchableOpacity,
@@ -370,7 +374,7 @@ var CallHistoryScreen = function () {
             hitSlop: { top: 8, bottom: 8, left: 8, right: 8 },
             accessible: true,
             accessibilityRole: 'button',
-            accessibilityLabel: 'Call back ' + name + ' with ' + (isVideo ? 'video' : 'voice'),
+            accessibilityLabel: 'Call back ' + callInfo.name,
           },
           React.createElement(Icon, {
             name: isVideo ? 'video' : 'phone',
@@ -386,7 +390,6 @@ var CallHistoryScreen = function () {
     return item.id;
   }, []);
 
-  // ─── Empty component ──────────────────────────────────────────
   var renderEmpty = function () {
     if (callsQuery.isLoading) return null;
     return React.createElement(
@@ -396,77 +399,15 @@ var CallHistoryScreen = function () {
       React.createElement(
         Text,
         { style: styles.emptyTitle },
-        filter === 'missed'
-          ? 'No missed calls'
-          : filter === 'voice'
-            ? 'No voice calls'
-            : filter === 'video'
-              ? 'No video calls'
-              : 'No call history'
+        filter === 'missed' ? 'No missed calls'
+          : filter === 'voice' ? 'No voice calls'
+          : filter === 'video' ? 'No video calls'
+          : 'No call history'
       ),
       React.createElement(
         Text,
         { style: styles.emptySubtitle },
         'Your call history will appear here'
-      )
-    );
-  };
-
-  // ─── Stats summary ────────────────────────────────────────────
-  var renderStats = function () {
-    if (allCalls.length === 0) return null;
-
-    var totalDuration = 0;
-    var missedCount = 0;
-    for (var i = 0; i < allCalls.length; i++) {
-      totalDuration += allCalls[i].duration || allCalls[i].durationSeconds || 0;
-      if (getCallStatus(allCalls[i]) === 'missed') missedCount++;
-    }
-
-    return React.createElement(
-      View,
-      { style: styles.statsRow },
-      React.createElement(
-        View,
-        { style: styles.statCard },
-        React.createElement(
-          Text,
-          { style: styles.statValue },
-          String(allCalls.length)
-        ),
-        React.createElement(
-          Text,
-          { style: styles.statLabel },
-          'Total Calls'
-        )
-      ),
-      React.createElement(
-        View,
-        { style: styles.statCard },
-        React.createElement(
-          Text,
-          { style: styles.statValue },
-          formatDuration(totalDuration)
-        ),
-        React.createElement(
-          Text,
-          { style: styles.statLabel },
-          'Talk Time'
-        )
-      ),
-      React.createElement(
-        View,
-        { style: [styles.statCard, missedCount > 0 && styles.statCardMissed] },
-        React.createElement(
-          Text,
-          { style: [styles.statValue, missedCount > 0 && { color: COLORS.red }] },
-          String(missedCount)
-        ),
-        React.createElement(
-          Text,
-          { style: styles.statLabel },
-          'Missed'
-        )
       )
     );
   };
@@ -480,9 +421,6 @@ var CallHistoryScreen = function () {
         navigation.goBack();
       },
     }),
-
-    // Stats
-    renderStats(),
 
     // Filter tabs
     renderFilterTabs(),
@@ -520,37 +458,6 @@ var styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-
-  // ─── Stats ────────────────────────────────────────────────
-  statsRow: {
-    flexDirection: 'row',
-    paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.md,
-    gap: SPACING.sm,
-  },
-  statCard: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: SPACING.md,
-    backgroundColor: COLORS.glassBg,
-    borderRadius: RADIUS.md,
-    borderWidth: 1,
-    borderColor: COLORS.glassBorder,
-  },
-  statCardMissed: {
-    borderColor: 'rgba(239,68,68,0.2)',
-    backgroundColor: 'rgba(239,68,68,0.05)',
-  },
-  statValue: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: COLORS.text,
-  },
-  statLabel: {
-    fontSize: 11,
-    color: COLORS.textMuted,
-    marginTop: 2,
   },
 
   // ─── Filter tabs ──────────────────────────────────────────

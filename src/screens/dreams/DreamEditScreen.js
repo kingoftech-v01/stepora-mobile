@@ -54,12 +54,21 @@ var DreamEditScreen = function () {
     }
   }, [dreamQuery.data, initialized]);
 
+  var [serverError, setServerError] = useState('');
+
   var handleSave = function () {
-    if (saving || !title.trim()) return;
+    if (saving) return;
+    if (!title.trim()) return;
+    var cleanDescription = description.trim();
+    if (cleanDescription.length > 0 && cleanDescription.length < 10) {
+      setServerError('Description must be at least 10 characters');
+      return;
+    }
     setSaving(true);
+    setServerError('');
     apiPatch(DREAMS.DETAIL(id), {
       title: title.trim(),
-      description: description.trim(),
+      description: cleanDescription,
       category: category,
       target_date: targetDate || null,
     })
@@ -67,10 +76,12 @@ var DreamEditScreen = function () {
         setSaving(false);
         queryClient.invalidateQueries({ queryKey: ['dream', id] });
         queryClient.invalidateQueries({ queryKey: ['dreams'] });
+        queryClient.invalidateQueries({ queryKey: ['dashboard'] });
         navigation.goBack();
       })
-      .catch(function () {
+      .catch(function (err) {
         setSaving(false);
+        setServerError(err.userMessage || err.message || 'Failed to save changes');
       });
   };
 

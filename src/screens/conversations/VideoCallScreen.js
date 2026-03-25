@@ -1,9 +1,9 @@
 /**
  * VideoCallScreen — Video call using Agora SDK (react-native-agora).
  *
- * Initializes the Agora RTC engine, fetches a token from the backend,
- * joins a channel, and renders local + remote video views.
- * Controls: mute audio, mute video, switch camera, end call.
+ * Uses FRIEND_CHAT.CALLS endpoints (not CONVERSATIONS.CALLS).
+ * Supports both CALLER and CALLEE flows.
+ * Synced with web: useVideoCallScreen.js pattern.
  */
 var React = require('react');
 var { useState, useEffect, useCallback, useRef } = React;
@@ -19,7 +19,7 @@ var {
 } = require('react-native');
 var { useNavigation, useRoute } = require('@react-navigation/native');
 var { apiGet, apiPost } = require('../../services/api');
-var { CONVERSATIONS } = require('../../services/endpoints');
+var { FRIEND_CHAT } = require('../../services/endpoints');
 var Avatar = require('../../components/shared/Avatar');
 var Icon = require('react-native-vector-icons/Feather').default;
 var { COLORS, SPACING } = require('../../theme/tokens');
@@ -34,13 +34,7 @@ var {
 } = require('react-native-agora');
 
 var AGORA_APP_ID = 'b67aeb35dbff4cb8a70278fb8e3edf46';
-var SCREEN_W = Dimensions.get('window').width;
-var SCREEN_H = Dimensions.get('window').height;
 
-/**
- * Request camera + microphone permissions on Android.
- * iOS permissions are handled via Info.plist at the OS level.
- */
 var requestPermissions = function () {
   if (Platform.OS === 'android') {
     return PermissionsAndroid.requestMultiple([
@@ -54,123 +48,192 @@ var requestPermissions = function () {
       return cameraGranted && audioGranted;
     });
   }
-  // iOS: permissions requested automatically by the system
   return Promise.resolve(true);
+};
+
+var formatDuration = function (s) {
+  var mins = Math.floor(s / 60);
+  var secs = s % 60;
+  return (mins < 10 ? '0' : '') + mins + ':' + (secs < 10 ? '0' : '') + secs;
 };
 
 var VideoCallScreen = function () {
   var navigation = useNavigation();
   var route = useRoute();
-  var conversationId = route.params && route.params.conversationId;
-  var callTitle = (route.params && route.params.title) || 'Video Call';
-  var [callState, setCallState] = useState('connecting'); // connecting | ringing | active | ended
+
+  // Route params from web pattern: callId, friendName, answering
+  var callId = (route.params && route.params.callId) || (route.params && route.params.conversationId);
+  var friendName = (route.params && route.params.friendName) || (route.params && route.params.title) || 'Video Call';
+  var answering = (route.params && route.params.answering) || false;
+
+  var [callStatus, setCallStatus] = useState(answering ? 'connecting' : 'ringing');
   var [duration, setDuration] = useState(0);
   var [isMuted, setIsMuted] = useState(false);
   var [isVideoOff, setIsVideoOff] = useState(false);
-  var [isSpeaker, setIsSpeaker] = useState(true);
+  var [error, setError] = useState(null);
   var [remoteUid, setRemoteUid] = useState(null);
   var durationRef = useRef(null);
-  var callIdRef = useRef(null);
   var engineRef = useRef(null);
+  var pollRef = useRef(null);
 
-  // Initialize call
-  useEffect(function () {
-    var cancelled = false;
+  // CALLER flow: poll for acceptance
+  useEffect(
+    function () {
+      if (answering || !callId) return;
 
-    var initCall = function () {
-      // 1. Request device permissions
-      requestPermissions()
-        .then(function (granted) {
-          if (cancelled) return;
-          if (!granted) {
-            console.error('[VideoCall] Camera/microphone permissions denied');
-            setCallState('ended');
-            return Promise.reject(new Error('Permissions denied'));
-          }
-
-          // 2. Initiate call on backend
-          return apiPost(CONVERSATIONS.CALLS.INITIATE, {
-            conversation_id: conversationId,
-            call_type: 'video',
-          });
-        })
-        .then(function (data) {
-          if (cancelled || !data) return;
-          callIdRef.current = data.id || data.callId;
-          setCallState('ringing');
-
-          // 3. Get Agora RTC token from backend
-          var channelName = data.channelName || conversationId;
-          return apiGet(CONVERSATIONS.AGORA.RTC_TOKEN + '?channel=' + channelName).then(
-            function (agoraData) {
-              if (cancelled) return;
-              return { agoraData: agoraData, channelName: channelName };
+      function checkStatus() {
+        apiGet(FRIEND_CHAT.CALLS.STATUS(callId))
+          .then(function (data) {
+            var s = data.status;
+            if (s === 'accepted') {
+              if (pollRef.current) clearInterval(pollRef.current);
+              setCallStatus('connecting');
+              joinRTC();
+            } else if (s === 'rejected' || s === 'cancelled' || s === 'missed' || s === 'completed') {
+              if (pollRef.current) clearInterval(pollRef.current);
+              setCallStatus('ended');
+              setError(
+                s === 'rejected' ? 'Call declined'
+                  : s === 'missed' ? 'No answer'
+                  : 'Call ended'
+              );
+              setTimeout(function () {
+                navigation.goBack();
+              }, 1500);
             }
-          );
-        })
-        .then(function (result) {
-          if (cancelled || !result) return;
-          var agoraData = result.agoraData;
-          var channelName = result.channelName;
-
-          // 4. Create and initialize Agora engine
-          var engine = createAgoraRtcEngine();
-          engine.initialize({
-            appId: agoraData.appId || AGORA_APP_ID,
-            channelProfile: ChannelProfileType.ChannelProfileCommunication,
+          })
+          .catch(function (err) {
+            console.error('[VideoCall] poll:', err);
           });
+      }
 
-          // Register event handlers
-          engine.registerEventHandler({
-            onJoinChannelSuccess: function (_connection, _elapsed) {
-              if (!cancelled) {
-                setCallState('active');
-                startDurationTimer();
-              }
-            },
-            onUserJoined: function (_connection, uid, _elapsed) {
-              if (!cancelled) {
-                setRemoteUid(uid);
-              }
-            },
-            onUserOffline: function (_connection, uid, _reason) {
-              if (!cancelled) {
-                setRemoteUid(function (prev) {
-                  return prev === uid ? null : prev;
-                });
-              }
-            },
-            onError: function (err, msg) {
-              console.error('[VideoCall] Agora error:', err, msg);
-            },
-          });
+      checkStatus();
+      pollRef.current = setInterval(checkStatus, 2000);
 
-          // Enable video
-          engine.enableVideo();
-          engine.startPreview();
+      return function () {
+        if (pollRef.current) clearInterval(pollRef.current);
+      };
+    },
+    [callId, answering],
+  );
 
-          // Join channel
-          var token = agoraData.token || '';
-          var uid = agoraData.uid || 0;
-          engine.joinChannel(token, channelName, uid, {
-            clientRoleType: ClientRoleType.ClientRoleBroadcaster,
-          });
-
-          engineRef.current = engine;
+  // CALLEE flow: accept call
+  useEffect(
+    function () {
+      if (!answering || !callId) return;
+      apiPost(FRIEND_CHAT.CALLS.ACCEPT(callId))
+        .then(function () {
+          setCallStatus('connecting');
+          joinRTC();
         })
         .catch(function (err) {
-          if (!cancelled) {
-            console.error('[VideoCall] init error:', err);
-            setCallState('ended');
-          }
+          setError(err.userMessage || err.message || 'Failed to accept call');
         });
-    };
+    },
+    [callId, answering],
+  );
 
-    initCall();
+  // Auto-timeout for ringing
+  useEffect(
+    function () {
+      if (callStatus !== 'ringing') return;
+      var timeout = setTimeout(function () {
+        apiPost(FRIEND_CHAT.CALLS.CANCEL(callId)).catch(function () {});
+        setError('No answer');
+        setTimeout(function () {
+          navigation.goBack();
+        }, 1500);
+      }, 30000);
+      return function () {
+        clearTimeout(timeout);
+      };
+    },
+    [callStatus, callId],
+  );
 
-    return function () {
-      cancelled = true;
+  // Timer
+  useEffect(
+    function () {
+      if (callStatus === 'active') {
+        durationRef.current = setInterval(function () {
+          setDuration(function (prev) {
+            return prev + 1;
+          });
+        }, 1000);
+      }
+      return function () {
+        if (durationRef.current) clearInterval(durationRef.current);
+      };
+    },
+    [callStatus],
+  );
+
+  var joinRTC = function () {
+    if (engineRef.current) return;
+
+    requestPermissions()
+      .then(function (granted) {
+        if (!granted) {
+          setError('Camera/microphone permission denied');
+          setCallStatus('ended');
+          return Promise.reject(new Error('Permissions denied'));
+        }
+
+        return apiGet(FRIEND_CHAT.AGORA.RTC_TOKEN + '?channel=' + callId);
+      })
+      .then(function (agoraData) {
+        if (!agoraData) return;
+
+        var engine = createAgoraRtcEngine();
+        engine.initialize({
+          appId: agoraData.appId || AGORA_APP_ID,
+          channelProfile: ChannelProfileType.ChannelProfileCommunication,
+        });
+
+        engine.registerEventHandler({
+          onJoinChannelSuccess: function () {
+            setCallStatus('active');
+          },
+          onUserJoined: function (_connection, uid) {
+            setRemoteUid(uid);
+          },
+          onUserOffline: function (_connection, uid) {
+            setRemoteUid(function (prev) {
+              return prev === uid ? null : prev;
+            });
+            handleEndCall();
+          },
+          onError: function (err, msg) {
+            console.error('[VideoCall] Agora error:', err, msg);
+          },
+        });
+
+        engine.enableVideo();
+        engine.startPreview();
+
+        var token = agoraData.token || '';
+        var uid = agoraData.uid || 0;
+        engine.joinChannel(token, String(callId), uid, {
+          clientRoleType: ClientRoleType.ClientRoleBroadcaster,
+        });
+
+        engineRef.current = engine;
+      })
+      .catch(function (err) {
+        console.error('[VideoCall] join error:', err);
+        setError(err.userMessage || err.message || 'Could not connect');
+        setCallStatus('ended');
+      });
+  };
+
+  var handleEndCall = useCallback(
+    function () {
       if (durationRef.current) clearInterval(durationRef.current);
+      if (pollRef.current) clearInterval(pollRef.current);
+      setCallStatus('ended');
+      if (callId) {
+        apiPost(FRIEND_CHAT.CALLS.END(callId)).catch(function () {});
+      }
       if (engineRef.current) {
         try {
           engineRef.current.leaveChannel();
@@ -180,48 +243,40 @@ var VideoCallScreen = function () {
         }
         engineRef.current = null;
       }
-      if (callIdRef.current) {
-        apiPost(CONVERSATIONS.CALLS.END(callIdRef.current)).catch(function () {});
-      }
-    };
-  }, [conversationId]);
+      setTimeout(function () {
+        navigation.goBack();
+      }, 500);
+    },
+    [navigation, callId],
+  );
 
-  var startDurationTimer = function () {
-    durationRef.current = setInterval(function () {
-      setDuration(function (prev) {
-        return prev + 1;
-      });
-    }, 1000);
-  };
-
-  var formatDuration = function (s) {
-    var mins = Math.floor(s / 60);
-    var secs = s % 60;
-    return (mins < 10 ? '0' : '') + mins + ':' + (secs < 10 ? '0' : '') + secs;
-  };
-
-  var handleEndCall = useCallback(
+  var handleCancelCall = useCallback(
     function () {
-      if (durationRef.current) clearInterval(durationRef.current);
-      setCallState('ended');
-      if (callIdRef.current) {
-        apiPost(CONVERSATIONS.CALLS.END(callIdRef.current)).catch(function () {});
+      if (callId) {
+        apiPost(FRIEND_CHAT.CALLS.CANCEL(callId)).catch(function () {});
       }
+      if (pollRef.current) clearInterval(pollRef.current);
+      navigation.goBack();
+    },
+    [navigation, callId],
+  );
+
+  // Cleanup on unmount
+  useEffect(function () {
+    return function () {
+      if (durationRef.current) clearInterval(durationRef.current);
+      if (pollRef.current) clearInterval(pollRef.current);
       if (engineRef.current) {
         try {
           engineRef.current.leaveChannel();
           engineRef.current.release();
         } catch (e) {
-          console.warn('[VideoCall] end call cleanup error:', e);
+          console.warn('[VideoCall] cleanup error:', e);
         }
         engineRef.current = null;
       }
-      setTimeout(function () {
-        navigation.goBack();
-      }, 500);
-    },
-    [navigation]
-  );
+    };
+  }, []);
 
   var handleToggleMute = useCallback(function () {
     setIsMuted(function (prev) {
@@ -249,44 +304,49 @@ var VideoCallScreen = function () {
     }
   }, []);
 
+  var statusText = error
+    ? error
+    : callStatus === 'ringing' ? 'Calling...'
+    : callStatus === 'connecting' ? 'Connecting...'
+    : callStatus === 'active' ? formatDuration(duration)
+    : callStatus === 'ended' ? 'Call ended'
+    : '...';
+
   // Render remote video area
   var renderRemoteVideo = function () {
-    if (callState === 'connecting') {
+    if (callStatus === 'connecting') {
       return React.createElement(
         View,
         { style: styles.centerWrap },
-        React.createElement(ActivityIndicator, { size: 'large', color: COLORS.purple, accessibilityLabel: 'Connecting call' }),
-        React.createElement(Text, { style: styles.statusText, accessibilityLiveRegion: 'polite' }, 'Connecting...')
+        React.createElement(ActivityIndicator, { size: 'large', color: COLORS.purple }),
+        React.createElement(Text, { style: styles.statusText }, 'Connecting...')
       );
     }
-    if (callState === 'ringing') {
+    if (callStatus === 'ringing') {
       return React.createElement(
         View,
         { style: styles.centerWrap },
-        React.createElement(Avatar, { name: callTitle, size: 80, color: COLORS.purple }),
-        React.createElement(Text, { style: styles.callerName }, callTitle),
+        React.createElement(Avatar, { name: friendName, size: 80, color: COLORS.purple }),
+        React.createElement(Text, { style: styles.callerName }, friendName),
         React.createElement(Text, { style: styles.statusText }, 'Ringing...')
       );
     }
-    if (callState === 'active') {
+    if (callStatus === 'active') {
       if (remoteUid !== null) {
-        // Render remote user's video via Agora RtcSurfaceView
         return React.createElement(RtcSurfaceView, {
           style: styles.remoteVideoSurface,
           canvas: { uid: remoteUid },
         });
       }
-      // Remote user not yet joined — show avatar placeholder
       return React.createElement(
         View,
         { style: styles.centerWrap },
-        React.createElement(Avatar, { name: callTitle, size: 100, color: COLORS.purple }),
-        React.createElement(Text, { style: styles.callerName }, callTitle),
+        React.createElement(Avatar, { name: friendName, size: 100, color: COLORS.purple }),
+        React.createElement(Text, { style: styles.callerName }, friendName),
         React.createElement(Text, { style: styles.durationText }, formatDuration(duration)),
         React.createElement(Text, { style: styles.waitingText }, 'Waiting for other participant...')
       );
     }
-    // ended
     return React.createElement(
       View,
       { style: styles.centerWrap },
@@ -301,7 +361,7 @@ var VideoCallScreen = function () {
     React.createElement(View, { style: styles.remoteVideo }, renderRemoteVideo()),
 
     // Duration overlay when remote video is showing
-    callState === 'active' && remoteUid !== null
+    callStatus === 'active' && remoteUid !== null
       ? React.createElement(
           View,
           { style: styles.durationOverlay },
@@ -309,8 +369,8 @@ var VideoCallScreen = function () {
         )
       : null,
 
-    // Local video PIP (shows own camera feed)
-    callState === 'active' && !isVideoOff
+    // Local video PIP
+    callStatus === 'active' && !isVideoOff
       ? React.createElement(
           View,
           { style: styles.localVideo },
@@ -334,7 +394,6 @@ var VideoCallScreen = function () {
           accessible: true,
           accessibilityRole: 'button',
           accessibilityLabel: isMuted ? 'Unmute microphone' : 'Mute microphone',
-          accessibilityState: { selected: isMuted },
         },
         React.createElement(Icon, {
           name: isMuted ? 'mic-off' : 'mic',
@@ -350,7 +409,6 @@ var VideoCallScreen = function () {
           accessible: true,
           accessibilityRole: 'button',
           accessibilityLabel: isVideoOff ? 'Turn on camera' : 'Turn off camera',
-          accessibilityState: { selected: isVideoOff },
         },
         React.createElement(Icon, {
           name: isVideoOff ? 'video-off' : 'video',
@@ -367,10 +425,10 @@ var VideoCallScreen = function () {
         TouchableOpacity,
         {
           style: [styles.controlBtn, styles.endCallBtn],
-          onPress: handleEndCall,
+          onPress: callStatus === 'ringing' ? handleCancelCall : handleEndCall,
           accessible: true,
           accessibilityRole: 'button',
-          accessibilityLabel: 'End call',
+          accessibilityLabel: callStatus === 'ringing' ? 'Cancel call' : 'End call',
         },
         React.createElement(Icon, { name: 'phone-off', size: 22, color: '#FFFFFF' })
       )
@@ -450,10 +508,6 @@ var styles = StyleSheet.create({
   },
   localVideoSurface: {
     flex: 1,
-  },
-  localVideoText: {
-    fontSize: 12,
-    color: COLORS.textMuted,
   },
   controls: {
     flexDirection: 'row',

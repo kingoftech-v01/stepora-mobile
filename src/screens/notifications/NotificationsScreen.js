@@ -19,6 +19,7 @@ var { useNavigation } = require('@react-navigation/native');
 var { useMutation, useQueryClient, useInfiniteQuery } = require('@tanstack/react-query');
 var { apiGet, apiPost } = require('../../services/api');
 var { NOTIFICATIONS } = require('../../services/endpoints');
+var { useToast } = require('../../context/ToastContext');
 var { BRAND } = require('../../styles/colors');
 var { dark: theme } = require('../../styles/theme');
 var { SPACING, FONT_SIZES, FONT_WEIGHTS, RADIUS } = require('../../styles/tokens');
@@ -107,6 +108,7 @@ var DATE_SECTIONS = [
 var NotificationsScreen = function () {
   var navigation = useNavigation();
   var queryClient = useQueryClient();
+  var toast = useToast();
 
   var [activeFilter, setActiveFilter] = useState('all');
   var [dismissed, setDismissed] = useState({});
@@ -156,8 +158,16 @@ var NotificationsScreen = function () {
       return apiPost(NOTIFICATIONS.MARK_ALL_READ);
     },
     onSuccess: function () {
+      queryClient.setQueryData(['notifications'], { pages: [], pageParams: [] });
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
       queryClient.invalidateQueries({ queryKey: ['unread'] });
+      toast.showToast('All notifications marked as read', 'success');
+    },
+    onError: function (err) {
+      toast.showToast(
+        (err && err.userMessage) || (err && err.message) || 'Failed to mark all read',
+        'error',
+      );
     },
   });
 
@@ -168,6 +178,12 @@ var NotificationsScreen = function () {
     onSuccess: function () {
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
       queryClient.invalidateQueries({ queryKey: ['unread'] });
+    },
+    onError: function (err) {
+      toast.showToast(
+        (err && err.userMessage) || (err && err.message) || 'Failed to mark notification as read',
+        'error',
+      );
     },
   });
 

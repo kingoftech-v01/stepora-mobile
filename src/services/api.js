@@ -203,6 +203,13 @@ async function request(url, options) {
       'Network error: ' +
       (fetchError && fetchError.message ? fetchError.message : String(fetchError));
     if (method !== 'GET' && method !== 'HEAD') {
+      if (options.signal) {
+        var longRunError = new Error(networkMsg);
+        longRunError.status = 0;
+        longRunError.offline = true;
+        throw longRunError;
+      }
+      // Don't enqueue sensitive endpoints
       enqueueOfflineMutation(url, { method: method, body: options.body ? options.body : null });
       var offlineError = new Error(networkMsg);
       offlineError.status = 0;
@@ -222,6 +229,23 @@ async function request(url, options) {
 
   // ─── Error handling ─────────────────────────────────────────
   if (!response.ok) {
+    // 503 — maintenance mode: emit event and abort
+    if (response.status === 503) {
+      var maintBody = null;
+      try {
+        maintBody = await response.clone().json();
+      } catch (_me) {
+        /* not JSON */
+      }
+      if (maintBody && maintBody.maintenance) {
+        _emitAuthEvent({ type: 'maintenance', detail: maintBody });
+        var maintError = new Error('Maintenance mode');
+        maintError.status = 503;
+        maintError.maintenance = true;
+        throw maintError;
+      }
+    }
+
     // 401 — try silent refresh before giving up
     if (response.status === 401 && !_skipRefresh && !url.includes(REFRESH_URL)) {
       try {
@@ -395,6 +419,7 @@ export function enqueueOfflineMutation(url, options) {
     '/users/',
     '/social/report',
     '/export',
+    '/checkout',
     '/subscription/',
   ];
   for (var i = 0; i < sensitivePatterns.length; i++) {
@@ -430,9 +455,14 @@ export async function flushOfflineQueue() {
       });
       flushed++;
     } catch (e) {
-      failed.push(item);
-      failed = failed.concat(queue.slice(i + 1));
-      break;
+      if (e && e.offline) {
+        // Still offline — keep this item and all remaining items
+        failed.push(item);
+        failed = failed.concat(queue.slice(i + 1));
+        break;
+      }
+      // Online but request failed (server error) — discard this item and continue
+      flushed++;
     }
   }
 

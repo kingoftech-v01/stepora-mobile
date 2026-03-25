@@ -1,13 +1,16 @@
 /**
  * GlassCard — Glass morphism card container for React Native.
+ * Synced with components/GlassCard.js — supports padding, mb, borderRadius props.
  */
 var React = require('react');
 var { View, StyleSheet } = require('react-native');
 var { COLORS, RADIUS, SPACING } = require('../../theme/tokens');
+var { SHADOWS } = require('../../styles/theme');
 
 var GlassCard = function (props) {
-  var style = props.style;
-  var children = props.children;
+  var padding = props.padding != null ? props.padding : SPACING.lg;
+  var marginBottom = props.mb != null ? props.mb : SPACING.md;
+  var borderRadius = (props.style && props.style.borderRadius) || RADIUS.xl;
 
   return React.createElement(
     View,
@@ -15,20 +18,27 @@ var GlassCard = function (props) {
       accessible: props.accessible,
       accessibilityRole: props.accessibilityRole,
       accessibilityLabel: props.accessibilityLabel,
-      style: [styles.card, style],
+      style: [
+        styles.card,
+        {
+          padding: padding,
+          marginBottom: marginBottom,
+          borderRadius: borderRadius,
+        },
+        props.style,
+      ],
     },
-    children,
+    props.children,
   );
 };
 
 var styles = StyleSheet.create({
   card: {
     backgroundColor: COLORS.glassBg,
-    borderRadius: RADIUS.lg,
     borderWidth: 1,
     borderColor: COLORS.glassBorder,
-    padding: SPACING.lg,
-    marginBottom: SPACING.md,
+    overflow: 'hidden',
+    ...SHADOWS.soft,
   },
 });
 

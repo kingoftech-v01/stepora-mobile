@@ -3,19 +3,21 @@
  * when the user's subscription tier is insufficient.
  *
  * Usage:
- *   <SubscriptionGate requiredPlan="premium">
+ *   <SubscriptionGate required="premium">
  *     <SomePremiumComponent />
  *   </SubscriptionGate>
  *
  * Props:
- *   requiredPlan  - 'premium' | 'pro'
+ *   required      - 'premium' | 'pro' (also accepts legacy 'requiredPlan')
  *   children      - content to render when user has access
- *   featureName   - optional label shown in the lock overlay (e.g. "AI Coaching")
+ *   feature       - optional label shown in the lock overlay (e.g. "AI Coaching")
+ *                   (also accepts legacy 'featureName')
  *   compact       - optional boolean, renders a smaller inline lock instead of full overlay
  */
 var React = require('react');
-var { View, Text, StyleSheet } = require('react-native');
+var { View, Text, TouchableOpacity, StyleSheet } = require('react-native');
 var Icon = require('react-native-vector-icons/Feather').default;
+var { useNavigation } = require('@react-navigation/native');
 var { useAuth } = require('../context/AuthContext');
 var { COLORS, SPACING, RADIUS } = require('../theme/tokens');
 var { BRAND } = require('../styles/colors');
@@ -27,11 +29,13 @@ var PLAN_LABELS = {
 };
 
 var SubscriptionGate = function (props) {
-  var requiredPlan = props.requiredPlan || 'premium';
-  var featureName = props.featureName || '';
+  // Support both prop naming conventions (required/requiredPlan, feature/featureName)
+  var requiredPlan = props.required || props.requiredPlan || 'premium';
+  var featureName = props.feature || props.featureName || '';
   var compact = props.compact || false;
   var children = props.children;
 
+  var navigation = useNavigation();
   var auth = useAuth();
   var hasAccess = auth.hasSubscription(requiredPlan);
 
@@ -41,18 +45,28 @@ var SubscriptionGate = function (props) {
 
   var planLabel = PLAN_LABELS[requiredPlan] || requiredPlan;
 
+  var handleUpgrade = function () {
+    try {
+      navigation.navigate('Subscription');
+    } catch (e) {
+      // Subscription screen not available in nav tree
+    }
+  };
+
   // ── Compact inline lock ───────────────────────────────────
   if (compact) {
     var compactMsg = featureName
       ? featureName + ' requires ' + planLabel
       : planLabel + ' plan required';
     return React.createElement(
-      View,
+      TouchableOpacity,
       {
         style: styles.compactWrap,
+        onPress: handleUpgrade,
+        activeOpacity: 0.7,
         accessible: true,
-        accessibilityRole: 'alert',
-        accessibilityLabel: compactMsg,
+        accessibilityRole: 'button',
+        accessibilityLabel: compactMsg + '. Tap to upgrade.',
       },
       React.createElement(
         View,
@@ -111,14 +125,22 @@ var SubscriptionGate = function (props) {
               featureName + ' is available on the ' + planLabel + ' plan.',
             )
           : null,
+        // Upgrade button (matches web's navigation to /subscription)
         React.createElement(
-          View,
-          { style: styles.webNotice },
-          React.createElement(Icon, { name: 'star', size: 14, color: COLORS.textMuted }),
+          TouchableOpacity,
+          {
+            style: styles.upgradeBtn,
+            onPress: handleUpgrade,
+            activeOpacity: 0.85,
+            accessible: true,
+            accessibilityRole: 'button',
+            accessibilityLabel: 'Upgrade to ' + planLabel,
+          },
+          React.createElement(Icon, { name: 'sparkles', size: 14, color: '#fff' }),
           React.createElement(
             Text,
-            { style: styles.webNoticeText },
-            'Available with a ' + planLabel + ' subscription',
+            { style: styles.upgradeBtnText },
+            'Upgrade to ' + planLabel,
           ),
         ),
       ),
@@ -156,46 +178,51 @@ var styles = StyleSheet.create({
     width: '100%',
   },
   lockIconWrap: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 64,
+    height: 64,
+    borderRadius: 20,
     backgroundColor: 'rgba(139,92,246,0.12)',
     borderWidth: 1,
     borderColor: 'rgba(139,92,246,0.25)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 16,
+    marginBottom: 20,
   },
   lockTitle: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '700',
     color: COLORS.text,
     textAlign: 'center',
     marginBottom: 8,
   },
   lockFeature: {
-    fontSize: 13,
+    fontSize: 14,
     color: COLORS.textSecondary,
     textAlign: 'center',
-    lineHeight: 18,
-    marginBottom: 12,
+    lineHeight: 20,
+    marginBottom: 16,
   },
-  webNotice: {
+  upgradeBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    justifyContent: 'center',
+    gap: 8,
+    height: 44,
+    borderRadius: 14,
+    paddingHorizontal: 24,
+    backgroundColor: BRAND.purple,
     marginTop: 8,
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: RADIUS.sm,
-    backgroundColor: 'rgba(255,255,255,0.03)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.05)',
+    width: '100%',
+    shadowColor: BRAND.purple,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 6,
   },
-  webNoticeText: {
-    fontSize: 12,
-    color: COLORS.textMuted,
-    fontWeight: '500',
+  upgradeBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#fff',
   },
   // Compact variant
   compactWrap: {

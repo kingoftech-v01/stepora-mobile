@@ -21,6 +21,7 @@ var useDreamDetailScreen = function () {
     queryKey: ['dream', id],
     queryFn: function () { return apiGet(DREAMS.DETAIL(id)); },
     enabled: !!id,
+    refetchOnMount: 'always',
   });
   var DREAM = dreamQuery.data || {};
 
@@ -32,6 +33,17 @@ var useDreamDetailScreen = function () {
         (DREAM.milestones || []).slice(0, i).every(function (pm) {
           return pm.status === 'completed' || pm.completed;
         }));
+    // Compute task-based progress for this milestone (more granular than backend's goal-based %)
+    var msGoals = m.goals || [];
+    var msTotalTasks = 0;
+    var msDoneTasks = 0;
+    msGoals.forEach(function (g) {
+      (g.tasks || []).forEach(function (tk) {
+        msTotalTasks++;
+        if (tk.status === 'completed' || tk.completed) msDoneTasks++;
+      });
+    });
+    var taskBasedProgress = msTotalTasks > 0 ? Math.round((msDoneTasks / msTotalTasks) * 100) : 0;
     return {
       id: m.id,
       label: m.title,
@@ -39,10 +51,19 @@ var useDreamDetailScreen = function () {
       order: m.order != null ? m.order : i,
       done: isDone,
       active: isActive,
-      progressPercentage: m.progressPercentage || 0,
+      progressPercentage: taskBasedProgress,
+      totalTasks: msTotalTasks,
+      doneTasks: msDoneTasks,
+      goalsCount: msGoals.length,
+      completedGoalsCount: m.completedGoalsCount || 0,
       expectedDate: m.expectedDate,
       deadlineDate: m.deadlineDate,
-      goals: m.goals || [],
+      date: m.deadlineDate
+        ? new Date(m.deadlineDate).toLocaleDateString()
+        : m.expectedDate
+          ? new Date(m.expectedDate).toLocaleDateString()
+          : '',
+      goals: msGoals,
     };
   });
 
@@ -106,7 +127,7 @@ var useDreamDetailScreen = function () {
   // State
   var [goals, setGoals] = useState([]);
   var [expanded, setExpanded] = useState({});
-  var [goalsInitialized, setGoalsInitialized] = useState(false);
+  var [goalsUpdatedAt, setGoalsUpdatedAt] = useState(0);
   var [menu, setMenu] = useState(false);
   var [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   var [addGoal, setAddGoal] = useState(false);
@@ -125,7 +146,7 @@ var useDreamDetailScreen = function () {
   }, [checkinQuery.data]);
 
   useEffect(function () {
-    if (dreamQuery.data && !goalsInitialized) {
+    if (dreamQuery.data && dreamQuery.dataUpdatedAt !== goalsUpdatedAt) {
       var allGoals = [];
       var milestones = dreamQuery.data.milestones || [];
       if (milestones.length > 0) {
@@ -139,9 +160,9 @@ var useDreamDetailScreen = function () {
       var initGoals = allGoals.map(function (g, i) {
         return Object.assign({}, g, {
           order: g.order !== undefined ? g.order : i,
-          completed: g.completed || g.status === 'completed' || false,
+          completed: g.status === 'completed' || g.completed || false,
           tasks: (g.tasks || []).map(function (tk) {
-            return Object.assign({}, tk, { completed: tk.completed || tk.status === 'completed' || false });
+            return Object.assign({}, tk, { completed: tk.status === 'completed' || tk.completed || false });
           }),
         });
       });
@@ -150,9 +171,9 @@ var useDreamDetailScreen = function () {
       var initExpanded = {};
       if (first) initExpanded[first.id] = true;
       setExpanded(initExpanded);
-      setGoalsInitialized(true);
+      setGoalsUpdatedAt(dreamQuery.dataUpdatedAt);
     }
-  }, [dreamQuery.data, goalsInitialized]);
+  }, [dreamQuery.data, dreamQuery.dataUpdatedAt, goalsUpdatedAt]);
 
   var toggleExpand = function (gid) {
     setExpanded(function (p) {
@@ -212,6 +233,12 @@ var useDreamDetailScreen = function () {
   var doneTasks = goals.reduce(function (s, g) {
     return s + g.tasks.filter(function (tk) { return tk.completed; }).length;
   }, 0);
+  var completedGoals = (goals || []).filter(function (g) {
+    return g.status === 'completed' || g.completedAt;
+  }).length;
+  var completedMilestones = MILESTONES.filter(function (m) {
+    return m.done;
+  }).length;
   var progress = totalTasks ? Math.round((doneTasks / totalTasks) * 100) : 0;
 
   var menuItems = [
@@ -276,9 +303,18 @@ var useDreamDetailScreen = function () {
     handleAddTask: handleAddTask,
     totalTasks: totalTasks,
     doneTasks: doneTasks,
+    completedGoals: completedGoals,
+    completedMilestones: completedMilestones,
     progress: progress,
     menuItems: menuItems,
     navigateToRefine: navigateToRefine,
+    // Check-in fields (synced with web)
+    canCheckin: DREAM ? DREAM.canCheckin || DREAM.can_checkin || false : false,
+    daysUntilCheckin: DREAM ? DREAM.daysUntilCheckin || DREAM.days_until_checkin || 0 : 0,
+    nextCheckinAt: DREAM ? DREAM.nextCheckinAt || DREAM.next_checkin_at || null : null,
+    calibrationStatus: DREAM
+      ? DREAM.calibrationStatus || DREAM.calibration_status || 'pending'
+      : 'pending',
   };
 };
 

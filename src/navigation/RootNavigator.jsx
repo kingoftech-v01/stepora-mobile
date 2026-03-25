@@ -166,7 +166,7 @@ export default function RootNavigator() {
         ) : user && user.emailVerified === false ? (
           // ─── Email Verification Gate ──────────────────────
           <RootStack.Screen name="EmailGate" component={EmailGateScreen} />
-        ) : user && !user.hasOnboarded ? (
+        ) : user && !user.onboardingCompleted ? (
           // ─── Onboarding Flow ──────────────────────────────
           <RootStack.Group>
             <RootStack.Screen name="Onboarding" component={OnboardingScreen} />

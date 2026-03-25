@@ -1,11 +1,18 @@
 /**
  * useTwoFactorScreen -- business logic for 2FA setup (React Native).
+ * Synced with web app's useTwoFactorScreen.js.
+ *
+ * Key changes from web:
+ * - Setup returns only otpauth_url (no raw secret) -- extract secret from URI
+ * - Verify sends { code } (not { totpCode })
  */
 var { useState, useEffect, useCallback } = require('react');
 var { useNavigation } = require('@react-navigation/native');
 var { Alert } = require('react-native');
 var { apiGet, apiPost } = require('../../../services/api');
 var { USERS } = require('../../../services/endpoints');
+var { useToast } = require('../../../context/ToastContext');
+var { useT } = require('../../../context/I18nContext');
 
 // Clipboard: try @react-native-clipboard if available, else fallback
 var Clipboard = null;
@@ -15,8 +22,24 @@ try {
   // fallback: no clipboard
 }
 
+/**
+ * Extract secret from otpauth:// URI.
+ * Format: otpauth://totp/Label?secret=XXXX&issuer=YYY
+ */
+function extractSecretFromUri(uri) {
+  if (!uri) return '';
+  try {
+    var match = uri.match(/[?&]secret=([A-Za-z0-9]+)/i);
+    return match ? match[1] : '';
+  } catch (e) {
+    return '';
+  }
+}
+
 function useTwoFactorScreen() {
   var navigation = useNavigation();
+  var { showToast } = useToast();
+  var { t } = useT();
 
   // ─── State ───────────────────────────────────────────────
   var [loading, setLoading] = useState(true);
@@ -42,7 +65,7 @@ function useTwoFactorScreen() {
         setLoading(false);
       })
       .catch(function (err) {
-        setError(err.message || 'Failed to load 2FA status');
+        setError(err.userMessage || err.message || t('tfa.failedLoad'));
         setLoading(false);
       });
   }, []);
@@ -57,35 +80,49 @@ function useTwoFactorScreen() {
     setSubmitting(true);
     apiPost(USERS.TFA.SETUP)
       .then(function (data) {
-        setQrUri(data.qrUri || data.qrCode || data.otpauthUrl || '');
-        setSecretKey(data.secretKey || data.secret || data.manualKey || '');
+        // Backend may return otpauth_url only (no raw secret)
+        var uri = data.provisioning_uri || data.provisioningUri || data.qrCodeUrl || data.qrUri || data.otpauthUrl || data.otpauth_url || '';
+        setQrUri(uri);
+        // Try to get secret from response, fallback to extracting from URI
+        var secret = data.secret || data.secretKey || data.manualKey || extractSecretFromUri(uri);
+        setSecretKey(secret);
         setStep('setup');
         setSubmitting(false);
       })
       .catch(function (err) {
-        setError(err.message || 'Failed to start 2FA setup');
+        setError(err.userMessage || err.message || t('tfa.failedSetup'));
         setSubmitting(false);
       });
   };
 
-  // ─── Verify TOTP code ───────────────────────────────────
+  // ─── Verify TOTP code (sends { code }, not { totpCode }) ─
   var handleVerify = function () {
     if (!totpCode || totpCode.length !== 6) {
-      setError('Enter a 6-digit code');
+      setError(t('tfa.invalidCodeFormat') || 'Enter a 6-digit code');
+      return;
+    }
+    if (!/^\d{6}$/.test(totpCode)) {
+      setError(t('tfa.invalidCodeFormat') || 'Enter a 6-digit code');
       return;
     }
     setError('');
     setSubmitting(true);
-    apiPost(USERS.TFA.VERIFY, { totpCode: totpCode })
+    apiPost(USERS.TFA.VERIFY, { code: totpCode })
       .then(function (data) {
-        setEnabled(true);
-        setBackupCodes(data.backupCodes || data.codes || []);
-        setStep('backup');
-        setTotpCode('');
-        setSubmitting(false);
+        if (data.verified) {
+          setEnabled(true);
+          setBackupCodes(data.backupCodes || data.codes || []);
+          setStep('backup');
+          setTotpCode('');
+          setSubmitting(false);
+          showToast(t('tfa.enabled'), 'success');
+        } else {
+          setError(t('tfa.invalidCode') || 'Invalid code');
+          setSubmitting(false);
+        }
       })
       .catch(function (err) {
-        setError(err.message || 'Invalid code. Please try again.');
+        setError(err.userMessage || err.message || t('tfa.verificationFailed'));
         setSubmitting(false);
       });
   };
@@ -99,9 +136,10 @@ function useTwoFactorScreen() {
         setBackupCodes(data.backupCodes || data.codes || []);
         setStep('backup');
         setSubmitting(false);
+        showToast(t('tfa.backupCodesGenerated'), 'success');
       })
       .catch(function (err) {
-        setError(err.message || 'Failed to load backup codes');
+        setError(err.userMessage || err.message || t('tfa.failedRegenerate'));
         setSubmitting(false);
       });
   };
@@ -109,7 +147,7 @@ function useTwoFactorScreen() {
   // ─── Disable 2FA ─────────────────────────────────────────
   var handleDisable = function () {
     if (!password) {
-      setError('Password is required');
+      setError(t('tfa.passwordRequired') || 'Password is required');
       return;
     }
     setError('');
@@ -120,9 +158,10 @@ function useTwoFactorScreen() {
         setPassword('');
         setStep('status');
         setSubmitting(false);
+        showToast(t('tfa.disabled'), 'success');
       })
       .catch(function (err) {
-        setError(err.message || 'Failed to disable 2FA');
+        setError(err.userMessage || err.message || t('tfa.failedDisable'));
         setSubmitting(false);
       });
   };
@@ -130,7 +169,7 @@ function useTwoFactorScreen() {
   // ─── Copy helpers ────────────────────────────────────────
   var handleCopySecret = function () {
     try {
-      if (Clipboard) {
+      if (Clipboard && secretKey) {
         Clipboard.setString(secretKey);
       }
     } catch (e) {
@@ -156,17 +195,34 @@ function useTwoFactorScreen() {
   // ─── Confirm disable ─────────────────────────────────────
   var handleConfirmDisable = function () {
     Alert.alert(
-      'Disable Two-Factor Auth',
-      'Are you sure? This will make your account less secure.',
+      t('tfa.disableTitle') || 'Disable Two-Factor Auth',
+      t('tfa.disableConfirm') || 'Are you sure? This will make your account less secure.',
       [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Disable', style: 'destructive', onPress: function () { setStep('disable'); } },
+        { text: t('common.cancel') || 'Cancel', style: 'cancel' },
+        { text: t('tfa.disable') || 'Disable', style: 'destructive', onPress: function () { setStep('disable'); } },
       ]
     );
   };
 
+  // ─── Reset to idle ───────────────────────────────────────
+  var handleResetToIdle = function () {
+    setStep('status');
+    setBackupCodes([]);
+    setSecretKey('');
+    setQrUri('');
+    setTotpCode('');
+  };
+
+  var handleCancelSetup = function () {
+    setStep('status');
+    setSecretKey('');
+    setQrUri('');
+    setTotpCode('');
+  };
+
   return {
     navigation: navigation,
+    t: t,
     loading: loading,
     enabled: enabled,
     step: step,
@@ -191,6 +247,8 @@ function useTwoFactorScreen() {
     handleCopySecret: handleCopySecret,
     handleCopyBackupCodes: handleCopyBackupCodes,
     handleConfirmDisable: handleConfirmDisable,
+    handleResetToIdle: handleResetToIdle,
+    handleCancelSetup: handleCancelSetup,
   };
 }
 

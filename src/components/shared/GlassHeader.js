@@ -1,5 +1,13 @@
 /**
  * GlassHeader — Glass morphism app bar for screen headers.
+ *
+ * Props:
+ *   title          — Header title string
+ *   titleComponent — Custom React element for the title area (overrides title)
+ *   onBack         — Callback for back button; if null, shows a spacer
+ *   rightActions   — Array of { icon, onPress, badge, label, hint }
+ *   leftComponent  — Custom component for the left slot (overrides onBack)
+ *   style          — Additional styles for the header container
  */
 var React = require('react');
 var { View, Text, TouchableOpacity, StyleSheet } = require('react-native');
@@ -9,27 +17,36 @@ var { COLORS, SPACING } = require('../../theme/tokens');
 var GlassHeader = function (props) {
   var title = props.title || '';
   var onBack = props.onBack;
-  var rightActions = props.rightActions; // array of { icon, onPress, badge }
+  var rightActions = props.rightActions; // array of { icon, onPress, badge, label, hint }
   var titleComponent = props.titleComponent;
+  var leftComponent = props.leftComponent;
+
+  // Left slot
+  var leftSlot;
+  if (leftComponent) {
+    leftSlot = leftComponent;
+  } else if (onBack) {
+    leftSlot = React.createElement(
+      TouchableOpacity,
+      {
+        onPress: onBack,
+        style: styles.iconBtn,
+        hitSlop: { top: 8, bottom: 8, left: 8, right: 8 },
+        accessible: true,
+        accessibilityRole: 'button',
+        accessibilityLabel: 'Go back',
+      },
+      React.createElement(Icon, { name: 'arrow-left', size: 22, color: COLORS.text }),
+    );
+  } else {
+    leftSlot = React.createElement(View, { style: { width: 38 } });
+  }
 
   return React.createElement(
     View,
-    { style: styles.header },
-    // Left: back button
-    onBack
-      ? React.createElement(
-          TouchableOpacity,
-          {
-            onPress: onBack,
-            style: styles.iconBtn,
-            hitSlop: { top: 8, bottom: 8, left: 8, right: 8 },
-            accessible: true,
-            accessibilityRole: 'button',
-            accessibilityLabel: 'Go back',
-          },
-          React.createElement(Icon, { name: 'arrow-left', size: 22, color: COLORS.text }),
-        )
-      : React.createElement(View, { style: { width: 38 } }),
+    { style: [styles.header, props.style] },
+    // Left slot
+    leftSlot,
 
     // Center: title
     React.createElement(
@@ -64,7 +81,7 @@ var GlassHeader = function (props) {
               React.createElement(Icon, {
                 name: action.icon,
                 size: 20,
-                color: COLORS.text,
+                color: action.color || COLORS.text,
               }),
               action.badge
                 ? React.createElement(
@@ -73,7 +90,7 @@ var GlassHeader = function (props) {
                     React.createElement(
                       Text,
                       { style: styles.badgeText },
-                      String(action.badge),
+                      action.badge > 99 ? '99+' : String(action.badge),
                     ),
                   )
                 : null,
@@ -88,6 +105,7 @@ var styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
+    minHeight: 56,
     paddingHorizontal: SPACING.lg,
     paddingVertical: SPACING.md,
     backgroundColor: 'rgba(255,255,255,0.04)',

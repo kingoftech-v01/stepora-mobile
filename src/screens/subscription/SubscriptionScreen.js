@@ -14,6 +14,7 @@ var {
   ActivityIndicator,
   StyleSheet,
   RefreshControl,
+  Alert,
 } = require('react-native');
 var { useNavigation } = require('@react-navigation/native');
 var { useQuery, useMutation, useQueryClient } = require('@tanstack/react-query');
@@ -142,7 +143,25 @@ var SubscriptionScreen = function () {
         : []
   );
 
-  // ─── Mutations (read-only actions only) ────────────────────
+  // ─── Mutations ─────────────────────────────────────────────
+
+  var changePlanMut = useMutation({
+    mutationFn: function (planSlug) {
+      return apiPost(SUBSCRIPTIONS.CHANGE_PLAN, { plan_slug: planSlug });
+    },
+    onSuccess: function (data) {
+      // CRITICAL: API returns snake_case string values (camelCase transform only affects keys)
+      if (data && data.action === 'downgrade_scheduled') {
+        Alert.alert('Plan Change Scheduled', 'Your plan will be downgraded at the end of the current billing period.');
+      } else if (data && data.action === 'upgraded') {
+        Alert.alert('Plan Upgraded', 'Your plan has been upgraded successfully.');
+      }
+      subQuery.refetch();
+    },
+    onError: function (err) {
+      Alert.alert('Change Failed', err.userMessage || err.message || 'Could not change plan.');
+    },
+  });
 
   var cancelPendingMut = useMutation({
     mutationFn: function () {

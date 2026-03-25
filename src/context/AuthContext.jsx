@@ -11,6 +11,7 @@ import {
   addAuthEventListener,
 } from '../services/api';
 import { AUTH, USERS } from '../services/endpoints';
+import { registerTokenWithBackend } from '../services/pushNotifications';
 
 var AuthContext = createContext(null);
 
@@ -27,6 +28,14 @@ export function AuthProvider({ children }) {
     return apiGet(USERS.ME).then(function (data) {
       setUser(data);
       setIsAuthenticated(true);
+      // Register for push notifications after auth
+      try {
+        registerTokenWithBackend(apiPost).catch(function (err) {
+          console.error('[Auth] push registration failed:', err);
+        });
+      } catch (e) {
+        // Push registration is non-critical — silent fallback
+      }
       return data;
     });
   }, []);
@@ -176,10 +185,10 @@ export function AuthProvider({ children }) {
 
   // ─── Complete onboarding ──────────────────────────────────────
   var completeOnboarding = useCallback(function () {
-    return apiPost(USERS.COMPLETE_ONBOARDING).then(function () {
+    return apiPost(USERS.COMPLETE_ONBOARDING, { hasOnboarded: true }).then(function () {
       setUser(function (prev) {
         if (!prev) return prev;
-        return Object.assign({}, prev, { hasOnboarded: true });
+        return Object.assign({}, prev, { onboardingCompleted: true });
       });
     });
   }, []);

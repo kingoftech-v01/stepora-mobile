@@ -1,6 +1,8 @@
 /**
  * useCalendarScreen — Business logic for the Calendar screen.
- * Fetches tasks and events, builds calendar grid, handles mutations.
+ * Fetches tasks, events, and time blocks, builds calendar grid, handles mutations.
+ * Synced with web: normalizeTimeBlock, expandTimeBlocks, timeBlocksQuery,
+ * toggleEventMut, calMenu, googleCalendarEnabled, sanitizeText.
  */
 var { useState, useEffect } = require('react');
 var { useNavigation } = require('@react-navigation/native');
@@ -8,6 +10,8 @@ var { useQuery, useMutation, useQueryClient } = require('@tanstack/react-query')
 var { apiGet, apiPost, apiPatch, apiDelete } = require('../../services/api');
 var { CALENDAR, DREAMS } = require('../../services/endpoints');
 var { BRAND, adaptColor } = require('../../styles/colors');
+var { sanitizeText, validateRequired } = require('../../utils/sanitize');
+var { isEnabled } = require('../../config/featureFlags');
 
 var NOW = new Date();
 var TODAY = { y: NOW.getFullYear(), m: NOW.getMonth(), d: NOW.getDate() };
@@ -17,6 +21,7 @@ var TYPE_COLORS = {
   event: '#C4B5FD',
   reminder: '#FCD34D',
   deadline: '#F69A9A',
+  timeblock: '#8B5CF6',
 };
 
 function getKey(y, m, d) { return y + '-' + m + '-' + d; }
@@ -51,10 +56,56 @@ function normalizeEvent(e) {
     done: e.status === 'completed' || e.completed || false,
     type: 'event',
     color: TYPE_COLORS.event,
-    dream: e.dreamTitle || '',
+    dream: e.dreamTitle || e.taskTitle || '',
     isTask: false,
     isDeadline: false,
   };
+}
+
+function normalizeTimeBlock(tb, dateStr) {
+  var startTime = tb.startTime || tb.start_time || '';
+  var endTime = tb.endTime || tb.end_time || '';
+  return {
+    id: tb._expandedId || tb.id,
+    sourceId: tb.id,
+    title: tb.title || tb.blockType || tb.block_type || 'Time Block',
+    date: dateStr,
+    time: startTime ? startTime.substring(0, 5) : '',
+    endTime: endTime ? endTime.substring(0, 5) : '',
+    done: false,
+    type: 'timeblock',
+    color: tb.color || TYPE_COLORS.timeblock,
+    blockType: tb.blockType || tb.block_type || '',
+    dream: tb.dreamTitle || '',
+    isTask: false,
+    isDeadline: false,
+    isTimeBlock: true,
+    isRecurring: true,
+  };
+}
+
+function expandTimeBlocks(blocks, year, month) {
+  var expanded = [];
+  if (!blocks) return expanded;
+  var daysInMonth = new Date(year, month + 1, 0).getDate();
+  for (var day = 1; day <= daysInMonth; day++) {
+    var date = new Date(year, month, day);
+    var jsDay = date.getDay();
+    var pythonDay = jsDay === 0 ? 6 : jsDay - 1;
+    blocks.forEach(function (block) {
+      var blockDay = block.dayOfWeek != null ? block.dayOfWeek : block.day_of_week;
+      if (blockDay === pythonDay) {
+        if (block.isActive !== false && block.is_active !== false) {
+          var dateStr = getKey(year, month, day);
+          var tb = Object.assign({}, block, {
+            _expandedId: 'tb-' + block.id + '-' + dateStr,
+          });
+          expanded.push(normalizeTimeBlock(tb, dateStr));
+        }
+      }
+    });
+  }
+  return expanded;
 }
 
 function parseTimeTo24h(timeStr) {
@@ -86,6 +137,7 @@ var useCalendarScreen = function () {
   var [newTitle, setNewTitle] = useState('');
   var [newTime, setNewTime] = useState('9:00 AM');
   var [confirmDel, setConfirmDel] = useState(null);
+  var [calMenu, setCalMenu] = useState(false);
 
   var startDate = viewY + '-' + String(viewM + 1).padStart(2, '0') + '-01';
   var endDay = getDaysInMonth(viewY, viewM);
@@ -106,15 +158,27 @@ var useCalendarScreen = function () {
     queryFn: function () { return apiGet(CALENDAR.TODAY); },
   });
 
+  var timeBlocksQuery = useQuery({
+    queryKey: ['timeblocks'],
+    queryFn: function () { return apiGet(CALENDAR.TIMEBLOCKS); },
+    staleTime: 60000,
+  });
+
   useEffect(function () { setTimeout(function () { setMounted(true); }, 100); }, []);
 
   // Build events map
   var events = {};
   function addToMap(item) {
     if (!item.date) return;
-    var d = new Date(item.date);
-    if (isNaN(d.getTime())) return;
-    var k = getKey(d.getFullYear(), d.getMonth(), d.getDate());
+    var k;
+    if (item.isTimeBlock) {
+      // TimeBlocks already have the correct getKey() format as date
+      k = item.date;
+    } else {
+      var d = new Date(item.date);
+      if (isNaN(d.getTime())) return;
+      k = getKey(d.getFullYear(), d.getMonth(), d.getDate());
+    }
     if (!events[k]) events[k] = [];
     var exists = events[k].some(function (e) { return e.id === item.id; });
     if (!exists) events[k].push(item);
@@ -129,25 +193,53 @@ var useCalendarScreen = function () {
   var rawToday = (todayQuery.data && todayQuery.data.results) || todayQuery.data || [];
   if (Array.isArray(rawToday)) rawToday.forEach(function (t) { addToMap(normalizeTask(t)); });
 
+  var rawTimeBlocks = (timeBlocksQuery.data && timeBlocksQuery.data.results) || timeBlocksQuery.data || [];
+  var expandedBlocks = Array.isArray(rawTimeBlocks)
+    ? expandTimeBlocks(rawTimeBlocks, viewY, viewM)
+    : [];
+  expandedBlocks.forEach(function (tb) { addToMap(tb); });
+
   function invalidateCalendar() {
     queryClient.invalidateQueries({ queryKey: ['calendar-tasks'] });
     queryClient.invalidateQueries({ queryKey: ['calendar-events'] });
     queryClient.invalidateQueries({ queryKey: ['calendar-today'] });
+    queryClient.invalidateQueries({ queryKey: ['timeblocks'] });
   }
 
   var toggleTaskMut = useMutation({
     mutationFn: function (params) { return apiPost(DREAMS.TASKS.COMPLETE(params.id)); },
-    onSuccess: invalidateCalendar,
+    onSuccess: function () { invalidateCalendar(); },
+    onError: function (err) {
+      console.warn('Failed to toggle task', err.userMessage || err.message);
+    },
+  });
+
+  var toggleEventMut = useMutation({
+    mutationFn: function (params) {
+      return apiPatch(CALENDAR.EVENT_DETAIL(params.id), {
+        status: params.completed ? 'completed' : 'scheduled',
+      });
+    },
+    onSuccess: function () { invalidateCalendar(); },
+    onError: function (err) {
+      console.warn('Failed to toggle event', err.userMessage || err.message);
+    },
   });
 
   var deleteEventMut = useMutation({
     mutationFn: function (params) { return apiDelete(CALENDAR.EVENT_DETAIL(params.id)); },
-    onSuccess: invalidateCalendar,
+    onSuccess: function () { invalidateCalendar(); },
+    onError: function (err) {
+      console.warn('Failed to delete event', err.userMessage || err.message);
+    },
   });
 
   var createMutation = useMutation({
     mutationFn: function (body) { return apiPost(CALENDAR.EVENTS, body); },
-    onSuccess: invalidateCalendar,
+    onSuccess: function () { invalidateCalendar(); },
+    onError: function (err) {
+      console.warn('Failed to create event', err.userMessage || err.message);
+    },
   });
 
   var prevMonth = function () {
@@ -167,24 +259,35 @@ var useCalendarScreen = function () {
   var toggleTask = function (evtKey, evtId) {
     var evt = (events[evtKey] || []).find(function (e) { return e.id === evtId; });
     if (!evt) return;
-    if (evt.isTask) toggleTaskMut.mutate({ id: evtId });
+    if (evt.isTask) {
+      toggleTaskMut.mutate({ id: evtId });
+    } else {
+      toggleEventMut.mutate({ id: evtId, completed: !evt.done });
+    }
   };
 
   var deleteEvent = function (evtKey, evtId) {
     var evt = (events[evtKey] || []).find(function (e) { return e.id === evtId; });
-    if (evt && !evt.isTask) deleteEventMut.mutate({ id: evtId });
+    if (evt && evt.isTask) {
+      // Tasks are managed from their dream, not deleted from calendar
+      console.warn('Tasks are managed from their dream screen');
+    } else {
+      deleteEventMut.mutate({ id: evtId });
+    }
     setConfirmDel(null);
   };
 
   var handleAddEvt = function () {
-    if (!newTitle.trim()) return;
+    var cleanTitle = sanitizeText(newTitle, 200);
+    var missing = validateRequired({ title: cleanTitle });
+    if (missing.length > 0) return;
     var day = selDay || TODAY.d;
     var dateStr = viewY + '-' + String(viewM + 1).padStart(2, '0') + '-' + String(day).padStart(2, '0');
     var time24 = parseTimeTo24h(newTime);
     var startTime = dateStr + 'T' + time24;
     var endH = parseInt(time24.split(':')[0], 10) + 1;
     var endTime = dateStr + 'T' + String(endH).padStart(2, '0') + ':' + time24.split(':')[1] + ':00';
-    createMutation.mutate({ title: newTitle.trim(), start_time: startTime, end_time: endTime });
+    createMutation.mutate({ title: cleanTitle, start_time: startTime, end_time: endTime });
     setNewTitle('');
     setAddEvt(false);
   };
@@ -208,8 +311,11 @@ var useCalendarScreen = function () {
   for (var i = 0; i < firstDow; i++) cells.push(null);
   for (var d = 1; d <= daysInMonth; d++) cells.push(d);
 
+  var googleCalendarEnabled = isEnabled('GOOGLE_CALENDAR');
+
   return {
     navigation: navigation,
+    googleCalendarEnabled: googleCalendarEnabled,
     mounted: mounted,
     viewY: viewY,
     viewM: viewM,
@@ -223,8 +329,12 @@ var useCalendarScreen = function () {
     setNewTime: setNewTime,
     confirmDel: confirmDel,
     setConfirmDel: setConfirmDel,
+    calMenu: calMenu,
+    setCalMenu: setCalMenu,
     tasksQuery: tasksQuery,
+    eventsQuery: eventsQuery,
     todayQuery: todayQuery,
+    timeBlocksQuery: timeBlocksQuery,
     events: events,
     isLoading: isLoading,
     prevMonth: prevMonth,
@@ -233,6 +343,10 @@ var useCalendarScreen = function () {
     toggleTask: toggleTask,
     deleteEvent: deleteEvent,
     handleAddEvt: handleAddEvt,
+    toggleTaskMut: toggleTaskMut,
+    toggleEventMut: toggleEventMut,
+    deleteEventMut: deleteEventMut,
+    createMutation: createMutation,
     isToday: isToday,
     isSel: isSel,
     todayKey: todayKey,
@@ -243,6 +357,8 @@ var useCalendarScreen = function () {
     selKey: selKey,
     selEvents: selEvents,
     cells: cells,
+    daysInMonth: daysInMonth,
+    firstDow: firstDow,
     DAYS: DAYS,
     MONTHS: MONTHS,
     TODAY: TODAY,

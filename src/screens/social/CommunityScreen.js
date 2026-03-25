@@ -334,9 +334,9 @@ var CommunityScreen = function () {
           )
         : null,
       // Image
-      item.image || item.imageUrl
+      item.image || item.imageUrl || item.image_url
         ? React.createElement(Image, {
-            source: { uri: item.image || item.imageUrl },
+            source: { uri: item.image || item.imageUrl || item.image_url },
             style: styles.postImage,
             resizeMode: 'cover',
             accessible: true,
@@ -357,13 +357,13 @@ var CommunityScreen = function () {
             },
             accessible: true,
             accessibilityRole: 'button',
-            accessibilityLabel: (item.isLiked ? 'Unlike' : 'Like') + ', ' + String(item.likesCount || item.likes_count || 0) + ' likes',
-            accessibilityState: { selected: !!item.isLiked },
+            accessibilityLabel: ((item.isLiked || item.is_liked) ? 'Unlike' : 'Like') + ', ' + String(item.likesCount || item.likes_count || 0) + ' likes',
+            accessibilityState: { selected: !!(item.isLiked || item.is_liked) },
           },
           React.createElement(Icon, {
-            name: item.isLiked ? 'heart' : 'heart',
+            name: 'heart',
             size: 18,
-            color: item.isLiked ? '#EF4444' : COLORS.textMuted,
+            color: (item.isLiked || item.is_liked) ? '#EF4444' : COLORS.textMuted,
           }),
           React.createElement(
             Text,
@@ -431,7 +431,7 @@ var CommunityScreen = function () {
       React.createElement(
         Text,
         { style: styles.eventContent },
-        item.description || item.content || item.text || '',
+        item.description || item.content || item.text || (item.data && (item.data.dream || item.data.task)) || '',
       ),
     );
   };

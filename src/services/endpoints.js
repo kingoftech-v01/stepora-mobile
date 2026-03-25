@@ -41,9 +41,10 @@ export var USERS = {
   PROFILE_COMPLETENESS: '/api/users/profile-completeness/',
   DAILY_QUOTE: '/api/users/daily-quote/',
   STREAK_DETAILS: '/api/users/streak-details/',
-  STREAKS: '/api/users/streaks/',
-  STREAKS_CALENDAR: '/api/users/streaks/calendar/',
-  STREAK_FREEZE: '/api/users/streaks/freeze/',
+  STREAK_FREEZE: '/api/gamification/streak-freeze/',
+  GAMIFICATION_HEATMAP: '/api/gamification/heatmap/',
+  GAMIFICATION_DAILY_STATS: '/api/gamification/daily-stats/',
+  GAMIFICATION_LEADERBOARD: '/api/gamification/leaderboard/',
   MORNING_BRIEFING: '/api/users/morning-briefing/',
   WEEKLY_REPORT: '/api/users/weekly-report/',
   ENERGY_PROFILE: '/api/users/energy-profile/',
@@ -52,6 +53,7 @@ export var USERS = {
   CHECK_IN: '/api/users/check-in/',
   CELEBRATE: '/api/users/celebrate/',
   NOTIFICATION_TIMING: '/api/users/notification-timing/',
+  PERSONA: '/api/users/persona/',
   PROFILE: function (id) {
     return '/api/users/' + id + '/';
   },
@@ -136,6 +138,7 @@ export var DREAMS = {
   COLLABORATOR_DELETE: function (id, userId) {
     return '/api/dreams/dreams/' + id + '/collaborators/' + userId + '/';
   },
+  REFINE: '/api/dreams/dreams/refine/',
   AUTO_CATEGORIZE: '/api/dreams/dreams/auto-categorize/',
   SMART_ANALYSIS: '/api/dreams/dreams/smart-analysis/',
   SHARED_WITH_ME: '/api/dreams/dreams/shared-with-me/',
@@ -260,104 +263,137 @@ export var DREAMS = {
   },
 };
 
-// ─── Conversations ───────────────────────────────────────────────────
-export var CONVERSATIONS = {
-  LIST: '/api/conversations/',
+// ─── AI Coaching ─────────────────────────────────────────────────
+export var AI_CHAT = {
+  LIST: '/api/ai/conversations/',
   DETAIL: function (id) {
-    return '/api/conversations/' + id + '/';
+    return '/api/ai/conversations/' + id + '/';
   },
   SEND_MESSAGE: function (id) {
-    return '/api/conversations/' + id + '/send_message/';
+    return '/api/ai/conversations/' + id + '/send_message/';
   },
   SEND_VOICE: function (id) {
-    return '/api/conversations/' + id + '/send-voice/';
+    return '/api/ai/conversations/' + id + '/send-voice/';
   },
   SUMMARIZE_VOICE: function (id, msgId) {
-    return '/api/conversations/' + id + '/summarize-voice/' + msgId + '/';
+    return '/api/ai/conversations/' + id + '/summarize-voice/' + msgId + '/';
   },
   SEND_IMAGE: function (id) {
-    return '/api/conversations/' + id + '/send-image/';
+    return '/api/ai/conversations/' + id + '/send-image/';
   },
   MESSAGES: function (id) {
-    return '/api/conversations/' + id + '/messages/';
-  },
-  PIN: function (id) {
-    return '/api/conversations/' + id + '/pin/';
+    return '/api/ai/conversations/' + id + '/messages/';
   },
   PIN_MESSAGE: function (id, msgId) {
-    return '/api/conversations/' + id + '/pin-message/' + msgId + '/';
+    return '/api/ai/conversations/' + id + '/pin-message/' + msgId + '/';
   },
   LIKE_MESSAGE: function (id, msgId) {
-    return '/api/conversations/' + id + '/like-message/' + msgId + '/';
+    return '/api/ai/conversations/' + id + '/like-message/' + msgId + '/';
   },
   REACT_MESSAGE: function (id, msgId) {
-    return '/api/conversations/' + id + '/react-message/' + msgId + '/';
+    return '/api/ai/conversations/' + id + '/react-message/' + msgId + '/';
   },
   SEARCH: function (id) {
-    return '/api/conversations/' + id + '/search/';
+    return '/api/ai/conversations/' + id + '/search/';
   },
   SEARCH_MESSAGES: function (id, q) {
-    return '/api/conversations/' + id + '/search/?q=' + encodeURIComponent(q);
+    return '/api/ai/conversations/' + id + '/search/?q=' + encodeURIComponent(q);
   },
   EXPORT: function (id) {
-    return '/api/conversations/' + id + '/export/';
+    return '/api/ai/conversations/' + id + '/export/';
   },
   ARCHIVE: function (id) {
-    return '/api/conversations/' + id + '/archive/';
+    return '/api/ai/conversations/' + id + '/archive/';
   },
   MARK_READ: function (id) {
-    return '/api/conversations/' + id + '/mark-read/';
+    return '/api/ai/conversations/' + id + '/mark-read/';
   },
   BRANCHES: {
     CREATE: function (id) {
-      return '/api/conversations/' + id + '/branch/';
+      return '/api/ai/conversations/' + id + '/branch/';
     },
     LIST: function (id) {
-      return '/api/conversations/' + id + '/branches/';
+      return '/api/ai/conversations/' + id + '/branches/';
     },
     SEND: function (id, branchId) {
-      return '/api/conversations/' + id + '/branch/' + branchId + '/send/';
+      return '/api/ai/conversations/' + id + '/branch/' + branchId + '/send/';
     },
     MESSAGES: function (id, branchId) {
-      return '/api/conversations/' + id + '/branch/' + branchId + '/messages/';
+      return '/api/ai/conversations/' + id + '/branch/' + branchId + '/messages/';
     },
   },
-  TEMPLATES: '/api/conversations/conversation-templates/',
+  TEMPLATES: '/api/ai/templates/',
+  MEMORIES: {
+    LIST: '/api/ai/memories/',
+    DELETE: function (id) {
+      return '/api/ai/memories/' + id + '/';
+    },
+    CLEAR: '/api/ai/memories/clear/',
+  },
+  MESSAGES_VIEWSET: '/api/ai/messages/',
+};
+
+// ─── Friend Chat + Calls ────────────────────────────────────────
+export var FRIEND_CHAT = {
+  LIST: '/api/chat/',
+  START: '/api/chat/start/',
+  DETAIL: function (id) {
+    return '/api/chat/' + id + '/';
+  },
+  SEND_MESSAGE: function (id) {
+    return '/api/chat/' + id + '/send-message/';
+  },
+  MESSAGES: function (id) {
+    return '/api/chat/' + id + '/messages/';
+  },
+  PIN_MESSAGE: function (id, msgId) {
+    return '/api/chat/' + id + '/pin-message/' + msgId + '/';
+  },
+  LIKE_MESSAGE: function (id, msgId) {
+    return '/api/chat/' + id + '/like-message/' + msgId + '/';
+  },
+  MARK_READ: function (id) {
+    return '/api/chat/' + id + '/mark-read/';
+  },
+  SEND_VOICE: function (id) {
+    return '/api/chat/' + id + '/send-voice/';
+  },
+  SUMMARIZE_VOICE: function (id, msgId) {
+    return '/api/chat/' + id + '/summarize-voice/' + msgId + '/';
+  },
+  SEARCH: function (id) {
+    return '/api/chat/' + id + '/search/';
+  },
   CALLS: {
-    LIST: '/api/conversations/calls/',
-    INITIATE: '/api/conversations/calls/initiate/',
+    LIST: '/api/chat/calls/',
+    INITIATE: '/api/chat/calls/initiate/',
     ACCEPT: function (id) {
-      return '/api/conversations/calls/' + id + '/accept/';
+      return '/api/chat/calls/' + id + '/accept/';
     },
     REJECT: function (id) {
-      return '/api/conversations/calls/' + id + '/reject/';
+      return '/api/chat/calls/' + id + '/reject/';
     },
     END: function (id) {
-      return '/api/conversations/calls/' + id + '/end/';
+      return '/api/chat/calls/' + id + '/end/';
     },
     CANCEL: function (id) {
-      return '/api/conversations/calls/' + id + '/cancel/';
+      return '/api/chat/calls/' + id + '/cancel/';
     },
-    INCOMING: '/api/conversations/calls/incoming/',
-    HISTORY: '/api/conversations/calls/history/',
+    INCOMING: '/api/chat/calls/incoming/',
+    HISTORY: '/api/chat/calls/history/',
     STATUS: function (id) {
-      return '/api/conversations/calls/' + id + '/status/';
+      return '/api/chat/calls/' + id + '/status/';
     },
   },
-  MEMORIES: {
-    LIST: '/api/conversations/memories/',
-    DELETE: function (id) {
-      return '/api/conversations/memories/' + id + '/';
-    },
-    CLEAR: '/api/conversations/memories/clear/',
-  },
-  MESSAGES_VIEWSET: '/api/conversations/messages/',
   AGORA: {
-    CONFIG: '/api/conversations/agora/config/',
-    RTM_TOKEN: '/api/conversations/agora/rtm-token/',
-    RTC_TOKEN: '/api/conversations/agora/rtc-token/',
+    CONFIG: '/api/chat/agora/config/',
+    RTM_TOKEN: '/api/chat/agora/rtm-token/',
+    RTC_TOKEN: '/api/chat/agora/rtc-token/',
   },
 };
+
+// Backward compat alias
+export var CONVERSATIONS = AI_CHAT;
 
 // ─── Calendar ────────────────────────────────────────────────────────
 export var CALENDAR = {
@@ -493,7 +529,7 @@ export var SUBSCRIPTIONS = {
   CANCEL_PENDING_CHANGE: '/api/subscriptions/subscription/cancel-pending-change/',
   // APPLY_COUPON removed — no in-app coupon input (App Store compliance)
   PROMOTIONS_ACTIVE: '/api/subscriptions/promotions/active/',
-  REFERRAL: '/api/subscriptions/referral/',
+  REFERRAL: '/api/referrals/dashboard/',
 };
 
 // ─── Store ───────────────────────────────────────────────────────────
@@ -514,6 +550,7 @@ export var STORE = {
   EQUIP: function (id) {
     return '/api/store/inventory/' + id + '/equip/';
   },
+  // Note: equip action toggles is_equipped — no separate unequip endpoint
   INVENTORY_HISTORY: '/api/store/inventory/history/',
   WISHLIST: '/api/store/wishlist/',
   PURCHASE: '/api/store/purchase/',
@@ -819,6 +856,13 @@ export var BUDDIES = {
   DELETE: function (id) {
     return '/api/buddies/' + id + '/';
   },
+  SUGGESTIONS: '/api/buddies/suggestions/',
+  ACCEPT_SUGGESTION: function (id) {
+    return '/api/buddies/' + id + '/accept-suggestion/';
+  },
+  SKIP_SUGGESTION: function (id) {
+    return '/api/buddies/' + id + '/skip-suggestion/';
+  },
   HISTORY: '/api/buddies/history/',
   CONTRACTS: {
     LIST: '/api/buddies/contracts/',
@@ -845,7 +889,7 @@ export var ADS = {
   CONFIG: '/api/ads/config/',
 };
 
-// ─── App Updates ─────────────────────────────────────────────────────
+// ─── App Updates (OTA + Store) ───────────────────────────────────────
 export var APP_UPDATES = {
   CHECK: '/api/updates/check/',
 };

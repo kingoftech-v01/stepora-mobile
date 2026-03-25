@@ -14,13 +14,11 @@ var {
 var { SafeAreaView } = require('react-native-safe-area-context');
 var Icon = require('react-native-vector-icons/Feather').default;
 var useEmailGateScreen = require('./useEmailGateScreen');
-var { useAuth } = require('../../../context/AuthContext');
 var { COLORS, SPACING, RADIUS } = require('../../../theme/tokens');
 var { BRAND } = require('../../../styles/colors');
 
 var EmailGateScreen = function () {
-  var auth = useAuth();
-  var h = useEmailGateScreen(auth);
+  var h = useEmailGateScreen();
 
   return React.createElement(SafeAreaView, { style: styles.container },
     React.createElement(View, { style: styles.content },

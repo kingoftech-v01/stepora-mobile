@@ -1,7 +1,8 @@
 /**
- * GroupChatScreen — Circle group chat with WebSocket real-time messaging.
- * Uses inverted FlatList, KeyboardAvoidingView, sender avatars + names.
- * Works for both circle chats and buddy chats.
+ * GroupChatScreen — Circle group chat with REST messaging + polling.
+ * Uses CIRCLES endpoints. Identifies user messages via AuthContext.
+ * Uses display_name from user profile for sender names.
+ * Synced with web: useCircleChatScreen.js pattern.
  */
 var React = require('react');
 var { useState, useCallback, useEffect, useRef } = React;
@@ -18,14 +19,14 @@ var {
 } = require('react-native');
 var { useNavigation, useRoute } = require('@react-navigation/native');
 var { useQuery } = require('@tanstack/react-query');
-var { apiGet, apiPost, getAccessToken } = require('../../services/api');
-var { CIRCLES, WS } = require('../../services/endpoints');
-var useChatSocket = require('../../hooks/useChatSocket');
+var { apiGet, apiPost } = require('../../services/api');
+var { CIRCLES } = require('../../services/endpoints');
+var { useAuth } = require('../../context/AuthContext');
 var ScreenShell = require('../../components/shared/ScreenShell');
 var GlassHeader = require('../../components/shared/GlassHeader');
 var Avatar = require('../../components/shared/Avatar');
 var Icon = require('react-native-vector-icons/Feather').default;
-var { COLORS, SPACING, RADIUS, CONTACT_COLORS } = require('../../theme/tokens');
+var { COLORS, SPACING, RADIUS } = require('../../theme/tokens');
 
 var MEMBER_COLORS = [
   '#8B5CF6',
@@ -72,7 +73,6 @@ var formatDateLabel = function (dateStr) {
 };
 
 var shouldShowDate = function (messages, index) {
-  // Messages are in reverse (newest first for inverted), so compare with next item
   if (index === messages.length - 1) return true;
   var current = new Date(messages[index].time);
   var next = new Date(messages[index + 1].time);
@@ -84,6 +84,7 @@ var PAGE_SIZE = 50;
 var GroupChatScreen = function () {
   var navigation = useNavigation();
   var route = useRoute();
+  var { user } = useAuth();
   var circleId = route.params && route.params.circleId;
   var chatTitle = (route.params && route.params.title) || 'Group Chat';
   var [inputText, setInputText] = useState('');
@@ -93,11 +94,9 @@ var GroupChatScreen = function () {
   var [hasMore, setHasMore] = useState(false);
   var [loadingMore, setLoadingMore] = useState(false);
   var [nextOffset, setNextOffset] = useState(0);
-  var [typingUsers, setTypingUsers] = useState([]);
   var flatListRef = useRef(null);
   var membersMapRef = useRef({});
-  var typingTimersRef = useRef({});
-  var token = getAccessToken();
+  var pollRef = useRef(null);
 
   // Fetch circle details for member info
   var circleQuery = useQuery({
@@ -108,7 +107,9 @@ var GroupChatScreen = function () {
     enabled: !!circleId,
   });
 
-  var circle = circleQuery.data || {};
+  var rawCircleData = circleQuery.data || {};
+  var circle = rawCircleData.circle || rawCircleData;
+  var circleName = circle.name || chatTitle;
   var memberCount = (circle.members && circle.members.length) || circle.memberCount || 0;
 
   // Build members map
@@ -164,7 +165,7 @@ var GroupChatScreen = function () {
         info.name
       )[0].toUpperCase(),
       senderColor: getMemberColor(sid),
-      isUser: m.isUser || false,
+      isUser: sid === String(user && user.id),
       time: m.createdAt || m.timestamp || new Date().toISOString(),
     };
   };
@@ -190,62 +191,26 @@ var GroupChatScreen = function () {
     [circleId],
   );
 
-  // WebSocket for real-time
-  var wsPath = circleId ? WS.CIRCLE_CHAT(circleId) : null;
-  var chat = useChatSocket(wsPath, token, {
-    onMessage: function (data) {
-      if (!data) return;
-      var msg = data.message || data;
-      // Add incoming message
-      setMessages(function (prev) {
-        // Deduplicate
-        var isDupe = prev.some(function (m) {
-          return m.id === String(msg.id);
-        });
-        if (isDupe) return prev;
-        return prev.concat([mapMsg(msg)]);
-      });
-      // Clear typing for this sender
-      if (msg.senderId) {
-        setTypingUsers(function (prev) {
-          return prev.filter(function (t) {
-            return t.id !== String(msg.senderId);
-          });
-        });
-      }
+  // Poll for new messages (since mobile doesn't have Agora RTM)
+  useEffect(
+    function () {
+      if (!circleId || initLoading) return;
+      pollRef.current = setInterval(function () {
+        apiGet(CIRCLES.CHAT(circleId) + '?limit=' + PAGE_SIZE)
+          .then(function (raw) {
+            var list = raw.results || raw || [];
+            if (list.length > 0) {
+              setMessages(list.map(mapMsg));
+            }
+          })
+          .catch(function () {});
+      }, 8000);
+      return function () {
+        if (pollRef.current) clearInterval(pollRef.current);
+      };
     },
-    onTyping: function (data) {
-      if (!data || !data.userId) return;
-      var uid = String(data.userId);
-      var info = getSenderInfo(uid);
-      setTypingUsers(function (prev) {
-        var filtered = prev.filter(function (t) {
-          return t.id !== uid;
-        });
-        filtered.push({ id: uid, name: info.name });
-        return filtered;
-      });
-      // Auto-clear after 4s
-      if (typingTimersRef.current[uid]) clearTimeout(typingTimersRef.current[uid]);
-      typingTimersRef.current[uid] = setTimeout(function () {
-        setTypingUsers(function (prev) {
-          return prev.filter(function (t) {
-            return t.id !== uid;
-          });
-        });
-      }, 4000);
-    },
-  });
-
-  // Clean up typing timers
-  useEffect(function () {
-    return function () {
-      var timers = typingTimersRef.current;
-      Object.keys(timers).forEach(function (k) {
-        clearTimeout(timers[k]);
-      });
-    };
-  }, []);
+    [circleId, initLoading],
+  );
 
   var loadOlder = useCallback(
     function () {
@@ -280,14 +245,16 @@ var GroupChatScreen = function () {
       setSending(true);
       setInputText('');
 
+      var displayName = (user && (user.displayName || user.display_name || user.username)) || 'You';
+
       // Optimistic local message
       var optimistic = {
         id: 'local-' + Date.now(),
         content: text,
-        senderId: 'me',
-        senderName: 'You',
-        senderInitial: 'Y',
-        senderColor: COLORS.purple,
+        senderId: String(user && user.id),
+        senderName: displayName,
+        senderInitial: displayName[0].toUpperCase(),
+        senderColor: getMemberColor(user && user.id),
         isUser: true,
         time: new Date().toISOString(),
         _local: true,
@@ -296,10 +263,6 @@ var GroupChatScreen = function () {
         return prev.concat([optimistic]);
       });
 
-      // Send via WebSocket
-      chat.sendMessage(text);
-
-      // Also send via REST as fallback
       apiPost(CIRCLES.CHAT_SEND(circleId), { content: text })
         .then(function () {
           setMessages(function (prev) {
@@ -307,6 +270,13 @@ var GroupChatScreen = function () {
               return m.id !== optimistic.id;
             });
           });
+          // Refresh messages
+          apiGet(CIRCLES.CHAT(circleId) + '?limit=' + PAGE_SIZE)
+            .then(function (raw) {
+              var list = raw.results || raw || [];
+              if (list.length > 0) setMessages(list.map(mapMsg));
+            })
+            .catch(function () {});
         })
         .catch(function () {
           setMessages(function (prev) {
@@ -320,18 +290,8 @@ var GroupChatScreen = function () {
 
       setSending(false);
     },
-    [inputText, sending, circleId, chat],
+    [inputText, sending, circleId, user],
   );
-
-  // Typing indicator text
-  var typingText = '';
-  if (typingUsers.length === 1) {
-    typingText = typingUsers[0].name + ' is typing...';
-  } else if (typingUsers.length === 2) {
-    typingText = typingUsers[0].name + ' & ' + typingUsers[1].name + ' are typing...';
-  } else if (typingUsers.length > 2) {
-    typingText = typingUsers[0].name + ' & ' + (typingUsers.length - 1) + ' others typing...';
-  }
 
   // Reversed messages for inverted FlatList
   var reversedMessages = messages.slice().reverse();
@@ -346,7 +306,6 @@ var GroupChatScreen = function () {
       return React.createElement(
         View,
         null,
-        // Date separator (shown below since list is inverted)
         showDate
           ? React.createElement(
               View,
@@ -443,7 +402,7 @@ var GroupChatScreen = function () {
     ScreenShell,
     null,
     React.createElement(GlassHeader, {
-      title: chatTitle,
+      title: circleName,
       onBack: function () {
         navigation.goBack();
       },
@@ -464,7 +423,7 @@ var GroupChatScreen = function () {
         React.createElement(
           Text,
           { style: styles.headerTitle, numberOfLines: 1 },
-          chatTitle,
+          circleName,
         ),
         React.createElement(
           Text,
@@ -516,15 +475,6 @@ var GroupChatScreen = function () {
               : null,
           }),
 
-      // Typing indicator
-      typingText
-        ? React.createElement(
-            View,
-            { style: styles.typingBar, accessibilityLiveRegion: 'polite' },
-            React.createElement(Text, { style: styles.typingText }, typingText),
-          )
-        : null,
-
       // Input bar
       React.createElement(
         View,
@@ -534,10 +484,7 @@ var GroupChatScreen = function () {
           placeholder: 'Type a message...',
           placeholderTextColor: COLORS.textMuted,
           value: inputText,
-          onChangeText: function (text) {
-            setInputText(text);
-            if (text) chat.sendTyping();
-          },
+          onChangeText: setInputText,
           multiline: true,
           maxLength: 5000,
           onSubmitEditing: handleSend,
@@ -662,15 +609,6 @@ var styles = StyleSheet.create({
   msgTime: {
     fontSize: 10,
     color: COLORS.textMuted,
-  },
-  typingBar: {
-    paddingHorizontal: SPACING.lg,
-    paddingVertical: 4,
-  },
-  typingText: {
-    fontSize: 12,
-    color: COLORS.textMuted,
-    fontStyle: 'italic',
   },
   inputBar: {
     flexDirection: 'row',

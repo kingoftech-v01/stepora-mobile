@@ -255,34 +255,35 @@ var OnboardingScreen = function () {
     );
   };
 
-  // ─── Step 5: Subscription intro ─────────────────────────────
+  // ─── Step 5: Personality Quiz intro ─────────────────────────
 
   var renderStep5 = function () {
     return React.createElement(View, { style: styles.stepContent },
       React.createElement(View, { style: styles.iconCircle },
         React.createElement(Text, { style: styles.iconEmoji }, '\uD83D\uDE80')
       ),
-      React.createElement(Text, { style: styles.stepTitle, accessibilityRole: 'header' }, 'Supercharge Your Journey'),
+      React.createElement(Text, { style: styles.stepTitle, accessibilityRole: 'header' }, 'Discover Your Dreamer Type'),
       React.createElement(Text, { style: styles.stepDesc },
-        'Choose a plan that fits your ambition. Start free or unlock premium features.'
+        'Take a quick personality quiz to find your dreamer archetype and get personalized recommendations.'
       ),
-      // Plan preview cards
+      // Quiz preview cards
       React.createElement(View, { style: styles.planPreviewList },
         [
-          { name: 'Free', emoji: '\uD83C\uDF31', desc: 'Up to 3 dreams, daily check-ins', color: '#9CA3AF' },
-          { name: 'Premium', emoji: '\uD83D\uDE80', desc: 'Unlimited dreams, AI coaching', color: BRAND.purple },
-          { name: 'Pro', emoji: '\uD83D\uDC51', desc: 'Everything + circles, vision board', color: BRAND.yellow },
-        ].map(function (plan) {
+          { name: 'Visionary', emoji: '\u2B50', desc: 'Creative thinker, big-picture oriented', color: '#8B5CF6' },
+          { name: 'Achiever', emoji: '\uD83C\uDFC6', desc: 'Goal-oriented, disciplined, results-driven', color: '#F59E0B' },
+          { name: 'Explorer', emoji: '\uD83E\uDDED', desc: 'Adventurous spirit, lifelong learner', color: '#14B8A6' },
+          { name: 'Collaborator', emoji: '\uD83E\uDD1D', desc: 'Team player, empathetic, community builder', color: '#EC4899' },
+        ].map(function (archetype) {
           return React.createElement(View, {
-            key: plan.name,
-            style: [styles.planPreviewCard, { borderColor: plan.color + '30' }],
+            key: archetype.name,
+            style: [styles.planPreviewCard, { borderColor: archetype.color + '30' }],
             accessible: true,
-            accessibilityLabel: plan.name + ' plan, ' + plan.desc,
+            accessibilityLabel: archetype.name + ' archetype, ' + archetype.desc,
           },
-            React.createElement(Text, { style: { fontSize: 28 } }, plan.emoji),
+            React.createElement(Text, { style: { fontSize: 28 } }, archetype.emoji),
             React.createElement(View, { style: { flex: 1, marginLeft: 12 } },
-              React.createElement(Text, { style: [styles.planPreviewName, { color: plan.color }] }, plan.name),
-              React.createElement(Text, { style: styles.planPreviewDesc }, plan.desc)
+              React.createElement(Text, { style: [styles.planPreviewName, { color: archetype.color }] }, archetype.name),
+              React.createElement(Text, { style: styles.planPreviewDesc }, archetype.desc)
             ),
             React.createElement(Icon, { name: 'chevron-right', size: 16, color: COLORS.textMuted })
           );
@@ -296,7 +297,7 @@ var OnboardingScreen = function () {
   var renderFooter = function () {
     var showBack = h.step > 1;
     var showSkip = h.step !== 1;
-    var nextLabel = h.step === 5 ? 'Choose Plan' : 'Continue';
+    var nextLabel = h.step === 5 ? 'Take the Quiz' : 'Continue';
     if (h.step === 4 && h.notifGranted != null) nextLabel = 'Continue';
 
     return React.createElement(View, { style: styles.footer },

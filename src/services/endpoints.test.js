@@ -8,6 +8,8 @@ var {
   USERS,
   DREAMS,
   CONVERSATIONS,
+  AI_CHAT,
+  FRIEND_CHAT,
   CALENDAR,
   NOTIFICATIONS,
   SUBSCRIPTIONS,
@@ -157,32 +159,49 @@ describe('endpoints.js', function () {
     });
   });
 
-  describe('CONVERSATIONS endpoints', function () {
+  describe('AI_CHAT / CONVERSATIONS endpoints', function () {
     it('LIST is a static string', function () {
-      expect(CONVERSATIONS.LIST).toBe('/api/conversations/');
+      expect(CONVERSATIONS.LIST).toBe('/api/ai/conversations/');
     });
 
     it('dynamic endpoints return correct URLs', function () {
-      expect(CONVERSATIONS.DETAIL(1)).toBe('/api/conversations/1/');
-      expect(CONVERSATIONS.SEND_MESSAGE(1)).toBe('/api/conversations/1/send_message/');
-      expect(CONVERSATIONS.MESSAGES(1)).toBe('/api/conversations/1/messages/');
-      expect(CONVERSATIONS.MARK_READ(1)).toBe('/api/conversations/1/mark-read/');
+      expect(CONVERSATIONS.DETAIL(1)).toBe('/api/ai/conversations/1/');
+      expect(CONVERSATIONS.SEND_MESSAGE(1)).toBe('/api/ai/conversations/1/send_message/');
+      expect(CONVERSATIONS.MESSAGES(1)).toBe('/api/ai/conversations/1/messages/');
+      expect(CONVERSATIONS.MARK_READ(1)).toBe('/api/ai/conversations/1/mark-read/');
     });
 
     it('SEARCH_MESSAGES encodes query', function () {
       expect(CONVERSATIONS.SEARCH_MESSAGES(1, 'hello world')).toBe(
-        '/api/conversations/1/search/?q=hello%20world',
+        '/api/ai/conversations/1/search/?q=hello%20world',
       );
     });
 
     it('BRANCHES functions work', function () {
-      expect(CONVERSATIONS.BRANCHES.CREATE(1)).toBe('/api/conversations/1/branch/');
-      expect(CONVERSATIONS.BRANCHES.SEND(1, 2)).toBe('/api/conversations/1/branch/2/send/');
+      expect(CONVERSATIONS.BRANCHES.CREATE(1)).toBe('/api/ai/conversations/1/branch/');
+      expect(CONVERSATIONS.BRANCHES.SEND(1, 2)).toBe('/api/ai/conversations/1/branch/2/send/');
+    });
+  });
+
+  describe('FRIEND_CHAT endpoints', function () {
+    it('LIST is a static string', function () {
+      expect(FRIEND_CHAT.LIST).toBe('/api/chat/');
+    });
+
+    it('START is a static string', function () {
+      expect(FRIEND_CHAT.START).toBe('/api/chat/start/');
+    });
+
+    it('dynamic endpoints return correct URLs', function () {
+      expect(FRIEND_CHAT.DETAIL(1)).toBe('/api/chat/1/');
+      expect(FRIEND_CHAT.SEND_MESSAGE(1)).toBe('/api/chat/1/send-message/');
+      expect(FRIEND_CHAT.MESSAGES(1)).toBe('/api/chat/1/messages/');
+      expect(FRIEND_CHAT.MARK_READ(1)).toBe('/api/chat/1/mark-read/');
     });
 
     it('CALLS sub-endpoints exist', function () {
-      expect(CONVERSATIONS.CALLS.INITIATE).toBe('/api/conversations/calls/initiate/');
-      expect(CONVERSATIONS.CALLS.ACCEPT(5)).toBe('/api/conversations/calls/5/accept/');
+      expect(FRIEND_CHAT.CALLS.INITIATE).toBe('/api/chat/calls/initiate/');
+      expect(FRIEND_CHAT.CALLS.ACCEPT(5)).toBe('/api/chat/calls/5/accept/');
     });
   });
 

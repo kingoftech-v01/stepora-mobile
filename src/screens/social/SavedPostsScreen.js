@@ -120,10 +120,10 @@ var SavedPostsScreen = function () {
     var author = post.author || post.user || {};
     var authorName = author.displayName || author.display_name || author.username || 'User';
     var content = post.content || post.text || '';
-    var hasImage = !!(post.image || post.imageUrl);
-    var likesCount = post.likesCount || post.likes_count || 0;
-    var commentsCount = post.commentsCount || post.comments_count || 0;
-    var isLiked = post.isLiked || false;
+    var hasImage = !!(post.image || post.imageUrl || post.image_url);
+    var likesCount = post.likesCount != null ? post.likesCount : (post.likes_count || 0);
+    var commentsCount = post.commentsCount != null ? post.commentsCount : (post.comments_count || 0);
+    var isLiked = post.isLiked || post.is_liked || post.hasLiked || post.has_liked || false;
     var time = post.createdAt || post.created_at || post.savedAt;
 
     return React.createElement(
@@ -187,7 +187,7 @@ var SavedPostsScreen = function () {
         // Image
         hasImage
           ? React.createElement(Image, {
-              source: { uri: post.image || post.imageUrl },
+              source: { uri: post.image || post.imageUrl || post.image_url },
               style: styles.postImage,
               resizeMode: 'cover',
             })

@@ -1,10 +1,12 @@
 /**
  * useGoogleSyncSettingsScreen — Business logic for Google Sync Settings screen.
  * Manages sync direction, what to sync, per-dream sync toggles, and save.
+ * Synced with web: toast/alert messages on save/sync success/error.
  */
 var { useState, useEffect } = require('react');
 var { useNavigation } = require('@react-navigation/native');
 var { useQuery, useMutation, useQueryClient } = require('@tanstack/react-query');
+var { Alert } = require('react-native');
 var { apiGet, apiPost } = require('../../services/api');
 var { CALENDAR } = require('../../services/endpoints');
 var { BRAND, adaptColor } = require('../../styles/colors');
@@ -46,6 +48,10 @@ var useGoogleSyncSettingsScreen = function () {
     onSuccess: function () {
       setDirty(false);
       queryClient.invalidateQueries({ queryKey: ['google-sync-settings'] });
+      Alert.alert('Saved', 'Sync settings saved.');
+    },
+    onError: function (err) {
+      Alert.alert('Error', err.userMessage || err.message || 'Failed to save settings.');
     },
   });
 
@@ -54,6 +60,10 @@ var useGoogleSyncSettingsScreen = function () {
     onSuccess: function () {
       setLastSyncAt(new Date());
       queryClient.invalidateQueries({ queryKey: ['google-sync-settings'] });
+      Alert.alert('Syncing', 'Sync started.');
+    },
+    onError: function (err) {
+      Alert.alert('Sync Failed', err.userMessage || err.message || 'Sync failed.');
     },
   });
 
