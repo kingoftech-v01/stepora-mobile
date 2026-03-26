@@ -6,6 +6,7 @@
  */
 var React = require('react');
 var { useState, useCallback, useEffect, useRef } = React;
+var logger = require('../../utils/logger');
 var {
   View,
   Text,
@@ -184,7 +185,7 @@ var GroupChatScreen = function () {
           setInitLoading(false);
         })
         .catch(function (err) {
-          console.error('[GroupChat] init:', err);
+          logger.error('[GroupChat] init:', err);
           setInitLoading(false);
         });
     },

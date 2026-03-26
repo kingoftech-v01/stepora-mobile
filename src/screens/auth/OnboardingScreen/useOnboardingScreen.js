@@ -9,6 +9,7 @@ var { useAuth } = require('../../../context/AuthContext');
 var { apiPost, apiPatch, apiUpload } = require('../../../services/api');
 var { USERS } = require('../../../services/endpoints');
 var { requestPermission } = require('../../../services/pushNotifications');
+var logger = require('../../../utils/logger');
 
 var TOTAL_STEPS = 5;
 
@@ -236,7 +237,7 @@ var useOnboardingScreen = function () {
         refreshUser();
       })
       .catch(function (err) {
-        console.error('[Onboarding] completeOnboarding failed:', err);
+        logger.error('[Onboarding] completeOnboarding failed:', err);
         // Still proceed — the user should not be stuck
         refreshUser();
       })

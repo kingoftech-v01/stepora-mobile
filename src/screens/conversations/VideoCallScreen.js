@@ -33,7 +33,10 @@ var {
   VideoSourceType,
 } = require('react-native-agora');
 
-var AGORA_APP_ID = 'b67aeb35dbff4cb8a70278fb8e3edf46';
+var Config = require('../../config').default;
+var logger = require('../../utils/logger');
+
+var AGORA_APP_ID = Config.AGORA_APP_ID;
 
 var requestPermissions = function () {
   if (Platform.OS === 'android') {
@@ -103,7 +106,7 @@ var VideoCallScreen = function () {
             }
           })
           .catch(function (err) {
-            console.error('[VideoCall] poll:', err);
+            logger.error('[VideoCall] poll:', err);
           });
       }
 
@@ -204,7 +207,7 @@ var VideoCallScreen = function () {
             handleEndCall();
           },
           onError: function (err, msg) {
-            console.error('[VideoCall] Agora error:', err, msg);
+            logger.error('[VideoCall] Agora error:', err, msg);
           },
         });
 
@@ -220,7 +223,7 @@ var VideoCallScreen = function () {
         engineRef.current = engine;
       })
       .catch(function (err) {
-        console.error('[VideoCall] join error:', err);
+        logger.error('[VideoCall] join error:', err);
         setError(err.userMessage || err.message || 'Could not connect');
         setCallStatus('ended');
       });
@@ -239,7 +242,7 @@ var VideoCallScreen = function () {
           engineRef.current.leaveChannel();
           engineRef.current.release();
         } catch (e) {
-          console.warn('[VideoCall] cleanup error:', e);
+          logger.warn('[VideoCall] cleanup error:', e);
         }
         engineRef.current = null;
       }
@@ -271,7 +274,7 @@ var VideoCallScreen = function () {
           engineRef.current.leaveChannel();
           engineRef.current.release();
         } catch (e) {
-          console.warn('[VideoCall] cleanup error:', e);
+          logger.warn('[VideoCall] cleanup error:', e);
         }
         engineRef.current = null;
       }

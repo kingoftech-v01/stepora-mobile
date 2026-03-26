@@ -6,8 +6,26 @@
  * - App lock (require biometric on app open)
  * - Confirm sensitive actions (delete account, change password)
  * - Quick login (biometric + stored refresh token)
+ *
+ * SECURITY LIMITATION [V-245]: Current implementation uses simplePrompt()
+ * which is event-based (boolean success/failure), NOT cryptographic.
+ * The biometric check is a local UI gate only — it does not produce a
+ * cryptographic proof that the server can verify. An attacker with Frida
+ * or similar runtime hooking tools can bypass simplePrompt().
+ *
+ * TODO [V-245]: Migrate to cryptographic biometric authentication:
+ * 1. On biometric enrollment, call createKeys() to generate a keypair
+ *    bound to the device's secure enclave / TEE.
+ * 2. Send the public key to the server and associate it with the user.
+ * 3. On each biometric auth, call createSignature(payload) where payload
+ *    is a server-provided nonce/challenge.
+ * 4. Send the signed payload to the server for verification.
+ * This ensures the server has cryptographic proof of biometric success.
+ * The createKeys() and createSignature() methods already exist below
+ * but are currently unused by the authenticate() flow.
  */
 var AsyncStorage = require('@react-native-async-storage/async-storage').default;
+var logger = require('../utils/logger');
 
 var _biometrics = null;
 
@@ -26,7 +44,7 @@ var getBiometrics = function () {
         allowDeviceCredentials: true,
       });
     } catch (e) {
-      console.warn('[Biometrics] react-native-biometrics not installed');
+      logger.warn('[Biometrics] react-native-biometrics not installed');
       return null;
     }
   }

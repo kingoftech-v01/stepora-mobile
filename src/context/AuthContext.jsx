@@ -14,6 +14,7 @@ import {
 } from '../services/api';
 import { AUTH, USERS } from '../services/endpoints';
 import { registerTokenWithBackend } from '../services/pushNotifications';
+var logger = require('../utils/logger');
 
 var CACHED_USER_KEY = 'dp-cached-user';
 
@@ -40,16 +41,16 @@ export function AuthProvider({ children }) {
         onboardingCompleted: data.onboardingCompleted,
         subscription: data.subscription,
       })).catch(function (e) {
-        console.warn('[Auth] cached user save failed:', e);
+        logger.warn('[Auth] cached user save failed:', e);
       });
       // Flush offline queue after successful auth
       flushOfflineQueue().catch(function (e) {
-        console.warn('Offline flush failed:', e);
+        logger.warn('Offline flush failed:', e);
       });
       // Register for push notifications after auth
       try {
         registerTokenWithBackend(apiPost).catch(function (err) {
-          console.error('[Auth] push registration failed:', err);
+          logger.error('[Auth] push registration failed:', err);
         });
       } catch (e) {
         // Push registration is non-critical — silent fallback
@@ -193,7 +194,7 @@ export function AuthProvider({ children }) {
   var refreshUser = useCallback(
     function () {
       return fetchUser().catch(function (err) {
-        console.error('[Auth] user refresh failed:', err);
+        logger.error('[Auth] user refresh failed:', err);
       });
     },
     [fetchUser],

@@ -2,11 +2,20 @@
 // Fetch wrapper with JWT auth, case transforms, and error handling.
 // React Native: ALL tokens stored in AsyncStorage (no cookies).
 // Always sends X-Client-Platform: native so backend returns refresh in body.
+//
+// SECURITY TODO [V-231]: AsyncStorage is unencrypted on-device storage
+// (SQLite on Android, plist on iOS). JWT tokens (dp-access-token, dp-refresh-token)
+// should be migrated to react-native-keychain (iOS Keychain + Android Keystore)
+// or expo-secure-store for encrypted, hardware-backed token storage.
+// This requires adding the react-native-keychain dependency and updating
+// all setToken/getToken/clearAuth calls below.
+// Priority: HIGH — tokens are accessible via device backup or root access.
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { snakeToCamel, camelToSnake } from './transforms';
 import { getUserMessage } from '../utils/errorMessages';
 import Config from '../config';
+var logger = require('../utils/logger');
 
 var API_BASE = Config.API_BASE;
 var REFRESH_URL = '/api/auth/token/refresh/';
@@ -32,7 +41,7 @@ function _emitAuthEvent(event) {
     try {
       _authEventListeners[i](event);
     } catch (e) {
-      console.error('[API] auth event listener error:', e);
+      logger.error('[API] auth event listener error:', e);
     }
   }
 }
@@ -81,14 +90,14 @@ export function setToken(access, refresh) {
   _accessToken = access || '';
   if (access) {
     AsyncStorage.setItem('dp-access-token', access).catch(function (err) {
-      console.error('[Auth] token storage failed:', err);
+      logger.error('[Auth] token storage failed:', err);
     });
   } else {
     AsyncStorage.removeItem('dp-access-token').catch(function () {});
   }
   if (refresh) {
     AsyncStorage.setItem('dp-refresh-token', refresh).catch(function (err) {
-      console.error('[Auth] refresh token storage failed:', err);
+      logger.error('[Auth] refresh token storage failed:', err);
     });
   } else if (refresh === null) {
     AsyncStorage.removeItem('dp-refresh-token').catch(function () {});
@@ -107,7 +116,7 @@ export function clearAuth() {
     'dp-dream-draft',
   ];
   AsyncStorage.multiRemove(keys).catch(function (err) {
-    console.error('[Auth] token removal failed:', err);
+    logger.error('[Auth] token removal failed:', err);
   });
 }
 
@@ -444,14 +453,14 @@ export function enqueueOfflineMutation(url, options) {
   if (url.indexOf('/tasks/') !== -1 && (method === 'PATCH' || method === 'PUT')) {
     _offlineTaskCount++;
     if (_offlineTaskCount > MAX_OFFLINE_TASKS) {
-      console.warn('[OfflineQueue] Offline task limit reached (' + MAX_OFFLINE_TASKS + ')');
+      logger.warn('[OfflineQueue] Offline task limit reached (' + MAX_OFFLINE_TASKS + ')');
       return;
     }
   }
   if (url.indexOf('/journal/') !== -1 && method === 'POST') {
     _offlineJournalCount++;
     if (_offlineJournalCount > MAX_OFFLINE_JOURNALS) {
-      console.warn('[OfflineQueue] Offline journal limit reached (' + MAX_OFFLINE_JOURNALS + ')');
+      logger.warn('[OfflineQueue] Offline journal limit reached (' + MAX_OFFLINE_JOURNALS + ')');
       return;
     }
   }

@@ -9,6 +9,7 @@
  */
 
 var AD_CONFIG = require('./adConfig');
+var logger = require('../utils/logger');
 
 var _initialized = false;
 
@@ -23,7 +24,7 @@ function initAdMob() {
   }
 
   if (!AD_CONFIG.admobEnabled) {
-    console.log('[AdMob] Disabled in adConfig — skipping initialization.');
+    logger.log('[AdMob] Disabled in adConfig — skipping initialization.');
     return Promise.resolve();
   }
 
@@ -34,13 +35,13 @@ function initAdMob() {
       .initialize()
       .then(function (adapterStatuses) {
         _initialized = true;
-        console.log('[AdMob] Initialized successfully:', adapterStatuses);
+        logger.log('[AdMob] Initialized successfully:', adapterStatuses);
       })
       .catch(function (err) {
-        console.warn('[AdMob] Initialization failed:', err);
+        logger.warn('[AdMob] Initialization failed:', err);
       });
   } catch (e) {
-    console.warn('[AdMob] react-native-google-mobile-ads not installed — skipping initialization.');
+    logger.warn('[AdMob] react-native-google-mobile-ads not installed — skipping initialization.');
     return Promise.resolve();
   }
 }

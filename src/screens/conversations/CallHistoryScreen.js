@@ -7,6 +7,7 @@
  */
 var React = require('react');
 var { useState, useCallback, useMemo } = React;
+var logger = require('../../utils/logger');
 var {
   View,
   Text,
@@ -202,7 +203,7 @@ var CallHistoryScreen = function () {
         });
       })
       .catch(function (err) {
-        console.error('[CallHistory] callback failed:', err);
+        logger.error('[CallHistory] callback failed:', err);
       });
   }, [navigation]);
 

@@ -2,6 +2,23 @@
 <!--
   Network Security Configuration for Stepora.
   Only allows HTTPS connections. No cleartext traffic.
+  Certificate pinning on api.stepora.app (security audit #129, V-234).
+
+  SECURITY TODO [V-234-ios]: iOS certificate pinning is NOT implemented.
+  Android uses this XML-based pin-set, but iOS requires TrustKit or
+  NSPinnedDomains in Info.plist. Implement iOS-side pinning via:
+  Option A: Add TrustKit pod and configure pinned domains in AppDelegate.
+  Option B: Use NSPinnedDomains in Info.plist (iOS 14+).
+
+  Pin-set uses the leaf cert + intermediate CA so cert rotation to a new
+  leaf under the same CA does not break the app.  The expiration allows
+  the system trust store to take over if pins become stale.
+
+  To regenerate pins:
+    openssl s_client -servername api.stepora.app -connect api.stepora.app:443 </dev/null 2>/dev/null \
+      | openssl x509 -pubkey -noout \
+      | openssl pkey -pubin -outform DER \
+      | openssl dgst -sha256 -binary | base64
 -->
 <network-security-config>
     <base-config cleartextTrafficPermitted="false">
@@ -12,6 +29,18 @@
     <domain-config cleartextTrafficPermitted="false">
         <domain includeSubdomains="true">api.stepora.app</domain>
         <domain includeSubdomains="true">stepora.app</domain>
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+        <!-- Security audit #129: Certificate pinning against MITM -->
+        <pin-set expiration="2027-06-01">
+            <!-- Leaf: api.stepora.app (ACM-issued, rotated automatically by AWS) -->
+            <pin digest="SHA-256">MJ6dz2fkEWsvI0e5szmQvgZTZ4IWN4LjKYscUP/NKjw=</pin>
+            <!-- Backup: AWS intermediate CA (stays stable across leaf rotations) -->
+            <pin digest="SHA-256">G9LNNAql897egYsabashkzUCTEJkWBzgoEtk8X/678c=</pin>
+        </pin-set>
+    </domain-config>
+    <domain-config cleartextTrafficPermitted="false">
         <domain includeSubdomains="true">checkout.stripe.com</domain>
         <domain includeSubdomains="true">billing.stripe.com</domain>
     </domain-config>

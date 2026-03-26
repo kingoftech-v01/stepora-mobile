@@ -11,6 +11,7 @@ var { apiGet, apiPost, apiPatch, apiDelete } = require('../../services/api');
 var { CALENDAR, DREAMS } = require('../../services/endpoints');
 var { BRAND } = require('../../styles/colors');
 var { sanitizeText } = require('../../utils/sanitize');
+var logger = require('../../utils/logger');
 
 var BLOCK_TYPE_OPTIONS = [
   { value: 'work', key: 'calendar.blockTypeWork' },
@@ -153,7 +154,7 @@ var useTimeBlocksScreen = function () {
       resetFormAndClose();
     },
     onError: function (err) {
-      console.warn('Failed to create time block', err.userMessage || err.message);
+      logger.warn('Failed to create time block', err.userMessage || err.message);
     },
   });
 
@@ -164,7 +165,7 @@ var useTimeBlocksScreen = function () {
       resetFormAndClose();
     },
     onError: function (err) {
-      console.warn('Failed to update time block', err.userMessage || err.message);
+      logger.warn('Failed to update time block', err.userMessage || err.message);
     },
   });
 
@@ -175,7 +176,7 @@ var useTimeBlocksScreen = function () {
       setConfirmDelete(null);
     },
     onError: function (err) {
-      console.warn('Failed to delete time block', err.userMessage || err.message);
+      logger.warn('Failed to delete time block', err.userMessage || err.message);
     },
   });
 

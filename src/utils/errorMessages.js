@@ -137,7 +137,8 @@ export function getUserMessage(err, fallback) {
  */
 export function logError(context, err) {
   if (!err) return;
-  console.error(
+  var logger = require('./logger');
+  logger.error(
     '[' + context + ']',
     'status=' + (err.status || '?'),
     err.message || 'unknown error',

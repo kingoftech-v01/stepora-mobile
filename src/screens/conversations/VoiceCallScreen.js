@@ -30,7 +30,10 @@ var {
   ClientRoleType,
 } = require('react-native-agora');
 
-var AGORA_APP_ID = 'b67aeb35dbff4cb8a70278fb8e3edf46';
+var Config = require('../../config').default;
+var logger = require('../../utils/logger');
+
+var AGORA_APP_ID = Config.AGORA_APP_ID;
 
 var requestAudioPermission = function () {
   if (Platform.OS === 'android') {
@@ -95,7 +98,7 @@ var VoiceCallScreen = function () {
             }
           })
           .catch(function (err) {
-            console.error('[VoiceCall] poll:', err);
+            logger.error('[VoiceCall] poll:', err);
           });
       }
 
@@ -196,7 +199,7 @@ var VoiceCallScreen = function () {
             handleEndCall();
           },
           onError: function (err, msg) {
-            console.error('[VoiceCall] Agora error:', err, msg);
+            logger.error('[VoiceCall] Agora error:', err, msg);
           },
         });
 
@@ -213,7 +216,7 @@ var VoiceCallScreen = function () {
         engineRef.current = engine;
       })
       .catch(function (err) {
-        console.error('[VoiceCall] join error:', err);
+        logger.error('[VoiceCall] join error:', err);
         setError(err.userMessage || err.message || 'Could not connect');
         setCallStatus('ended');
       });
@@ -232,7 +235,7 @@ var VoiceCallScreen = function () {
           engineRef.current.leaveChannel();
           engineRef.current.release();
         } catch (e) {
-          console.warn('[VoiceCall] cleanup error:', e);
+          logger.warn('[VoiceCall] cleanup error:', e);
         }
         engineRef.current = null;
       }
@@ -264,7 +267,7 @@ var VoiceCallScreen = function () {
           engineRef.current.leaveChannel();
           engineRef.current.release();
         } catch (e) {
-          console.warn('[VoiceCall] cleanup error:', e);
+          logger.warn('[VoiceCall] cleanup error:', e);
         }
         engineRef.current = null;
       }

@@ -10,6 +10,8 @@
  * falls back to non-personalized ads gracefully.
  */
 
+var logger = require('../utils/logger');
+
 var _consentGathered = false;
 
 /**
@@ -35,7 +37,7 @@ function gatherGDPRConsent(options) {
     var AdsConsent = require('react-native-google-mobile-ads').AdsConsent;
 
     if (!AdsConsent) {
-      console.warn('[UMP] AdsConsent not available in react-native-google-mobile-ads.');
+      logger.warn('[UMP] AdsConsent not available in react-native-google-mobile-ads.');
       return Promise.resolve(null);
     }
 
@@ -43,16 +45,16 @@ function gatherGDPRConsent(options) {
     return AdsConsent.gatherConsent(options || {})
       .then(function (consentInfo) {
         _consentGathered = true;
-        console.log('[UMP] Consent gathered:', consentInfo);
+        logger.log('[UMP] Consent gathered:', consentInfo);
         return consentInfo;
       })
       .catch(function (err) {
-        console.warn('[UMP] Consent gathering failed — falling back to non-personalized ads:', err);
+        logger.warn('[UMP] Consent gathering failed — falling back to non-personalized ads:', err);
         _consentGathered = true; // Don't re-prompt on failure
         return null;
       });
   } catch (e) {
-    console.warn('[UMP] react-native-google-mobile-ads not installed — skipping GDPR consent.');
+    logger.warn('[UMP] react-native-google-mobile-ads not installed — skipping GDPR consent.');
     return Promise.resolve(null);
   }
 }
@@ -88,15 +90,15 @@ function showPrivacyOptions() {
 
     return AdsConsent.showPrivacyOptionsForm()
       .then(function (consentInfo) {
-        console.log('[UMP] Privacy options updated:', consentInfo);
+        logger.log('[UMP] Privacy options updated:', consentInfo);
         return consentInfo;
       })
       .catch(function (err) {
-        console.warn('[UMP] Failed to show privacy options form:', err);
+        logger.warn('[UMP] Failed to show privacy options form:', err);
         return null;
       });
   } catch (e) {
-    console.warn('[UMP] react-native-google-mobile-ads not installed — cannot show privacy options.');
+    logger.warn('[UMP] react-native-google-mobile-ads not installed — cannot show privacy options.');
     return Promise.resolve(null);
   }
 }

@@ -10,6 +10,7 @@ var { useQueryClient } = require('@tanstack/react-query');
 var { apiGet, apiPost } = require('../../services/api');
 var { DREAMS } = require('../../services/endpoints');
 var { BRAND, GRADIENTS, adaptColor } = require('../../styles/colors');
+var logger = require('../../utils/logger');
 
 var FALLBACK_QUESTIONS = [
   { id: 1, text: 'What experience level do you have with this?', type: 'choice', options: ['Beginner', 'Some experience', 'Intermediate', 'Advanced'] },
@@ -329,7 +330,7 @@ var useCalibrationScreen = function () {
         .catch(function (err) {
           setSubmittingAnswer(false);
           if (isLastQuestion) {
-            console.warn('Failed to save calibration answer', err);
+            logger.warn('Failed to save calibration answer', err);
           }
         });
     }

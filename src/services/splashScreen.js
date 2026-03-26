@@ -8,6 +8,8 @@
  * 3. First screen is rendered
  */
 
+var logger = require('../utils/logger');
+
 var _splashScreen = null;
 
 var getSplashScreen = function () {
@@ -15,7 +17,7 @@ var getSplashScreen = function () {
     try {
       _splashScreen = require('react-native-splash-screen').default;
     } catch (e) {
-      console.warn('[Splash] react-native-splash-screen not installed');
+      logger.warn('[Splash] react-native-splash-screen not installed');
       return null;
     }
   }
@@ -37,7 +39,7 @@ var hideSplash = function () {
     try {
       splash.hide();
     } catch (e) {
-      console.warn('[Splash] Failed to hide:', e);
+      logger.warn('[Splash] Failed to hide:', e);
     }
   }
 };
@@ -52,7 +54,7 @@ var showSplash = function () {
     try {
       splash.show();
     } catch (e) {
-      console.warn('[Splash] Failed to show:', e);
+      logger.warn('[Splash] Failed to show:', e);
     }
   }
 };

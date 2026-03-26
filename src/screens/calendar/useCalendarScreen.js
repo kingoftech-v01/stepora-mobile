@@ -13,6 +13,7 @@ var { CALENDAR, DREAMS } = require('../../services/endpoints');
 var { BRAND, adaptColor } = require('../../styles/colors');
 var { sanitizeText, validateRequired } = require('../../utils/sanitize');
 var { isEnabled } = require('../../config/featureFlags');
+var logger = require('../../utils/logger');
 
 var NOW = new Date();
 var TODAY = { y: NOW.getFullYear(), m: NOW.getMonth(), d: NOW.getDate() };
@@ -242,7 +243,7 @@ var useCalendarScreen = function () {
     mutationFn: function (params) { return apiPost(DREAMS.TASKS.COMPLETE(params.id)); },
     onSuccess: function () { invalidateCalendar(); },
     onError: function (err) {
-      console.warn('Failed to toggle task', err.userMessage || err.message);
+      logger.warn('Failed to toggle task', err.userMessage || err.message);
     },
   });
 
@@ -254,7 +255,7 @@ var useCalendarScreen = function () {
     },
     onSuccess: function () { invalidateCalendar(); },
     onError: function (err) {
-      console.warn('Failed to toggle event', err.userMessage || err.message);
+      logger.warn('Failed to toggle event', err.userMessage || err.message);
     },
   });
 
@@ -262,7 +263,7 @@ var useCalendarScreen = function () {
     mutationFn: function (params) { return apiDelete(CALENDAR.EVENT_DETAIL(params.id)); },
     onSuccess: function () { invalidateCalendar(); },
     onError: function (err) {
-      console.warn('Failed to delete event', err.userMessage || err.message);
+      logger.warn('Failed to delete event', err.userMessage || err.message);
     },
   });
 
@@ -270,7 +271,7 @@ var useCalendarScreen = function () {
     mutationFn: function (body) { return apiPost(CALENDAR.EVENTS, body); },
     onSuccess: function () { invalidateCalendar(); },
     onError: function (err) {
-      console.warn('Failed to create event', err.userMessage || err.message);
+      logger.warn('Failed to create event', err.userMessage || err.message);
     },
   });
 
@@ -302,7 +303,7 @@ var useCalendarScreen = function () {
     var evt = (events[evtKey] || []).find(function (e) { return e.id === evtId; });
     if (evt && evt.isTask) {
       // Tasks are managed from their dream, not deleted from calendar
-      console.warn('Tasks are managed from their dream screen');
+      logger.warn('Tasks are managed from their dream screen');
     } else {
       deleteEventMut.mutate({ id: evtId });
     }

@@ -36,6 +36,7 @@ var { useAuth } = require('../context/AuthContext');
 var { COLORS, SPACING, RADIUS } = require('../theme/tokens');
 var { BRAND } = require('../styles/colors');
 var AD_CONFIG = require('../services/adConfig');
+var logger = require('../utils/logger');
 
 // ─── Try to import AdMob interstitial ──────────────────────────────
 var InterstitialAd = null;
@@ -101,19 +102,19 @@ var AdInterstitial = forwardRef(function (props, ref) {
     });
 
     var unsubLoaded = interstitial.addAdEventListener(AdEventType.LOADED, function () {
-      console.log('[AdInterstitial] AdMob interstitial loaded');
+      logger.log('[AdInterstitial] AdMob interstitial loaded');
       admobReadyRef.current = true;
       admobFailedRef.current = false;
     });
 
     var unsubError = interstitial.addAdEventListener(AdEventType.ERROR, function (error) {
-      console.warn('[AdInterstitial] AdMob interstitial failed to load:', error);
+      logger.warn('[AdInterstitial] AdMob interstitial failed to load:', error);
       admobReadyRef.current = false;
       admobFailedRef.current = true;
     });
 
     var unsubClosed = interstitial.addAdEventListener(AdEventType.CLOSED, function () {
-      console.log('[AdInterstitial] AdMob interstitial closed — reloading');
+      logger.log('[AdInterstitial] AdMob interstitial closed — reloading');
       admobReadyRef.current = false;
       // Reload for next time
       interstitial.load();
@@ -159,7 +160,7 @@ var AdInterstitial = forwardRef(function (props, ref) {
               // ─── Try AdMob first ─────────────────────────────
               if (canUseAdMob && admobReadyRef.current && admobInterstitialRef.current) {
                 admobInterstitialRef.current.show().catch(function (err) {
-                  console.warn('[AdInterstitial] AdMob show failed, falling back to self-promo:', err);
+                  logger.warn('[AdInterstitial] AdMob show failed, falling back to self-promo:', err);
                   _showSelfPromo();
                 });
                 return;

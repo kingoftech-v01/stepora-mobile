@@ -27,6 +27,7 @@ var { useAuth } = require('../context/AuthContext');
 var { COLORS, SPACING, RADIUS } = require('../theme/tokens');
 var { BRAND } = require('../styles/colors');
 var AD_CONFIG = require('../services/adConfig');
+var logger = require('../utils/logger');
 
 // ─── Try to import AdMob native ad ─────────────────────────────────
 // Note: react-native-google-mobile-ads provides NativeAd in some versions.
@@ -135,10 +136,10 @@ var AdNative = function (props) {
           requestNonPersonalizedAdsOnly: true,
         },
         onAdLoaded: function () {
-          console.log('[AdNative] AdMob native ad loaded');
+          logger.log('[AdNative] AdMob native ad loaded');
         },
         onAdFailedToLoad: function (error) {
-          console.warn('[AdNative] AdMob native ad failed to load, falling back to self-promo:', error);
+          logger.warn('[AdNative] AdMob native ad failed to load, falling back to self-promo:', error);
           setFallbackToPromo(true);
         },
       })

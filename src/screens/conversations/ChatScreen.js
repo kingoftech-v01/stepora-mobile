@@ -6,6 +6,7 @@
  */
 var React = require('react');
 var { useState, useCallback, useEffect, useRef } = React;
+var logger = require('../../utils/logger');
 var {
   View,
   Text,
@@ -436,7 +437,7 @@ var ChatScreen = function () {
                 });
               })
               .catch(function (err) {
-                console.error('[Chat] voice call failed:', err);
+                logger.error('[Chat] voice call failed:', err);
               });
           },
         },
@@ -454,7 +455,7 @@ var ChatScreen = function () {
                 });
               })
               .catch(function (err) {
-                console.error('[Chat] video call failed:', err);
+                logger.error('[Chat] video call failed:', err);
               });
           },
         },

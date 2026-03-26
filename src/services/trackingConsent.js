@@ -14,6 +14,7 @@
  */
 
 var { Platform } = require('react-native');
+var logger = require('../utils/logger');
 
 /**
  * Request ATT permission from the user.
@@ -41,15 +42,15 @@ function requestTrackingPermission() {
         return currentStatus;
       })
       .then(function (status) {
-        console.log('[ATT] Tracking permission status:', status);
+        logger.log('[ATT] Tracking permission status:', status);
         return status;
       })
       .catch(function (err) {
-        console.warn('[ATT] Failed to request tracking permission:', err);
+        logger.warn('[ATT] Failed to request tracking permission:', err);
         return 'denied';
       });
   } catch (e) {
-    console.warn('[ATT] react-native-tracking-transparency not installed — skipping.');
+    logger.warn('[ATT] react-native-tracking-transparency not installed — skipping.');
     return Promise.resolve('unavailable');
   }
 }

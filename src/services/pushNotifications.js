@@ -9,6 +9,7 @@
  *   @notifee/react-native (for foreground display)
  */
 var { Platform } = require('react-native');
+var logger = require('../utils/logger');
 
 var _messaging = null;
 var _notifee = null;
@@ -21,7 +22,7 @@ var getMessaging = function () {
     try {
       _messaging = require('@react-native-firebase/messaging').default;
     } catch (e) {
-      console.warn('[Push] @react-native-firebase/messaging not installed');
+      logger.warn('[Push] @react-native-firebase/messaging not installed');
       return null;
     }
   }
@@ -33,7 +34,7 @@ var getNotifee = function () {
     try {
       _notifee = require('@notifee/react-native').default;
     } catch (e) {
-      console.warn('[Push] @notifee/react-native not installed');
+      logger.warn('[Push] @notifee/react-native not installed');
       return null;
     }
   }
@@ -84,7 +85,7 @@ var getFCMToken = function () {
   return messaging()
     .getToken()
     .catch(function (err) {
-      console.error('[Push] Failed to get FCM token:', err);
+      logger.error('[Push] Failed to get FCM token:', err);
       return null;
     });
 };
@@ -107,11 +108,11 @@ var registerTokenWithBackend = function (apiPost) {
       active: true,
     })
       .then(function () {
-        console.log('[Push] Token registered with backend');
+        logger.log('[Push] Token registered with backend');
         return token;
       })
       .catch(function (err) {
-        console.error('[Push] Failed to register token:', err);
+        logger.error('[Push] Failed to register token:', err);
         return token;
       });
   });
@@ -151,7 +152,7 @@ var displayForegroundNotification = function (remoteMessage) {
       });
     })
     .catch(function (err) {
-      console.error('[Push] Failed to display foreground notification:', err);
+      logger.error('[Push] Failed to display foreground notification:', err);
     });
 };
 
@@ -202,7 +203,7 @@ var handleNotificationNavigation = function (remoteMessage) {
     try {
       _navigationRef.navigate(route.screen, route.params || {});
     } catch (e) {
-      console.warn('[Push] Navigation failed:', e);
+      logger.warn('[Push] Navigation failed:', e);
     }
   }
 };
@@ -241,7 +242,7 @@ var setupListeners = function (navigationRef) {
 
   // Token refresh
   messaging().onTokenRefresh(function (newToken) {
-    console.log('[Push] Token refreshed:', newToken.substring(0, 20) + '...');
+    logger.log('[Push] Token refreshed:', newToken.substring(0, 20) + '...');
     // Re-register with backend on next opportunity
   });
 };
@@ -261,7 +262,7 @@ var teardownListeners = function () {
 // Call this in index.js: messaging().setBackgroundMessageHandler(backgroundHandler)
 
 var backgroundHandler = function (remoteMessage) {
-  console.log('[Push] Background message:', remoteMessage.messageId);
+  logger.log('[Push] Background message:', remoteMessage.messageId);
   return Promise.resolve();
 };
 

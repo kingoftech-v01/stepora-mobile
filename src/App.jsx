@@ -3,6 +3,13 @@
  *
  * Sets up all providers (Auth, Theme, I18n, Toast, React Query)
  * and renders the root navigator.
+ *
+ * SECURITY TODO [V-246]: Implement root/jailbreak detection at app startup.
+ * On rooted/jailbroken devices, token storage and certificate pinning can be
+ * bypassed. Use jail-monkey, react-native-device-info (isRooted/isJailBroken),
+ * or Google Play Integrity API to detect compromised devices and either warn
+ * the user or restrict sensitive features (e.g. payments, biometric auth).
+ * Priority: MEDIUM — defense-in-depth measure, not a primary security control.
  */
 
 import React, { useEffect } from 'react';
@@ -25,18 +32,19 @@ import OfflineBanner from './components/shared/OfflineBanner';
 var { requestTrackingPermission } = require('./services/trackingConsent');
 var { gatherGDPRConsent } = require('./services/adsConsent');
 var { initAdMob } = require('./services/admobInit');
+var logger = require('./utils/logger');
 
 requestTrackingPermission()
   .then(function (trackingStatus) {
-    console.log('[App] ATT status:', trackingStatus);
+    logger.log('[App] ATT status:', trackingStatus);
     return gatherGDPRConsent();
   })
   .then(function (consentInfo) {
-    console.log('[App] GDPR consent:', consentInfo);
+    logger.log('[App] GDPR consent:', consentInfo);
     return initAdMob();
   })
   .catch(function (err) {
-    console.warn('[App] Ad initialization chain failed — ads may not load:', err);
+    logger.warn('[App] Ad initialization chain failed — ads may not load:', err);
   });
 
 // ─── React Query client ──────────────────────────────────────────

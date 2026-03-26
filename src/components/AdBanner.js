@@ -23,6 +23,7 @@ var { useAuth } = require('../context/AuthContext');
 var { COLORS, SPACING, RADIUS } = require('../theme/tokens');
 var { BRAND } = require('../styles/colors');
 var AD_CONFIG = require('../services/adConfig');
+var logger = require('../utils/logger');
 
 // ─── Try to import AdMob banner ────────────────────────────────────
 var BannerAd = null;
@@ -133,10 +134,10 @@ var AdBanner = function (props) {
           requestNonPersonalizedAdsOnly: true,
         },
         onAdLoaded: function () {
-          console.log('[AdBanner] AdMob banner loaded');
+          logger.log('[AdBanner] AdMob banner loaded');
         },
         onAdFailedToLoad: function (error) {
-          console.warn('[AdBanner] AdMob banner failed to load, falling back to self-promo:', error);
+          logger.warn('[AdBanner] AdMob banner failed to load, falling back to self-promo:', error);
           setFallbackToPromo(true);
         },
       })
