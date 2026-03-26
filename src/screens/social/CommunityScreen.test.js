@@ -29,7 +29,10 @@ jest.mock('@tanstack/react-query', function () {
       return { data: null, isLoading: false };
     },
     useQueryClient: function () {
-      return { invalidateQueries: mockInvalidateQueries };
+      return { invalidateQueries: mockInvalidateQueries, cancelQueries: jest.fn(), getQueryData: jest.fn(), setQueryData: jest.fn() };
+    },
+    useMutation: function (opts) {
+      return { mutate: jest.fn(), isLoading: false };
     },
   };
 });

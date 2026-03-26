@@ -18,6 +18,8 @@ var mockInitToken = jest.fn(function () { return Promise.resolve('stored-token')
 var mockRefreshAccessToken = jest.fn(function () { return Promise.resolve('refreshed-token'); });
 var mockAddAuthEventListener = jest.fn(function () { return jest.fn(); });
 
+var mockFlushOfflineQueue = jest.fn(function () { return Promise.resolve(); });
+
 jest.mock('../services/api', function () {
   return {
     apiGet: function () { return mockApiGet.apply(null, arguments); },
@@ -29,6 +31,7 @@ jest.mock('../services/api', function () {
     initToken: function () { return mockInitToken.apply(null, arguments); },
     refreshAccessToken: function () { return mockRefreshAccessToken.apply(null, arguments); },
     addAuthEventListener: function () { return mockAddAuthEventListener.apply(null, arguments); },
+    flushOfflineQueue: function () { return mockFlushOfflineQueue.apply(null, arguments); },
   };
 });
 
