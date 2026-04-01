@@ -1,78 +1,70 @@
 {
+  "expo": {
+    "name": "Stepora",
+    "slug": "stepora",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "scheme": "stepora",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#03010a"
+    },
+    "android": {
+      "package": "com.stepora.app",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon-foreground.png",
+        "backgroundImage": "./assets/adaptive-icon-background.png",
+        "backgroundColor": "#03010a"
+      },
+      "permissions": [
+        "INTERNET",
+        "ACCESS_NETWORK_STATE",
+        "VIBRATE",
+        "RECEIVE_BOOT_COMPLETED",
+        "WAKE_LOCK",
+        "USE_BIOMETRIC",
+        "POST_NOTIFICATIONS",
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE"
+      ],
+      "googleServicesFile": "./google-services.json"
+    },
+    "ios": {
+      "bundleIdentifier": "com.stepora.app",
+      "buildNumber": "1",
+      "supportsTablet": true,
+      "infoPlist": {
+        "UIBackgroundModes": [
+          "fetch",
+          "remote-notification"
+        ],
+        "NSCameraUsageDescription": "Stepora needs camera access to take profile photos.",
+        "NSPhotoLibraryUsageDescription": "Stepora needs photo library access to select images.",
+        "NSFaceIDUsageDescription": "Stepora uses Face ID to securely unlock the app.",
+        "NSMicrophoneUsageDescription": "Stepora needs microphone access for voice messages.",
+        "NSUserTrackingUsageDescription": "We use this to show you relevant ads and improve your experience. You can change this anytime in Settings."
+      },
+      "associatedDomains": [
+        "applinks:stepora.app",
+        "applinks:api.stepora.app"
+      ],
+      "googleServicesFile": "./ios/Stepora/GoogleService-Info.plist"
+    },
+    "plugins": [
+      "@react-native-firebase/app",
+      "@react-native-firebase/messaging"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "d1a10010-50fb-4506-8cd8-cb4a5e27a549"
+      }
+    },
+    "owner": "kingoftechv_01"
+  },
   "name": "Stepora",
-  "displayName": "Stepora",
-  "version": "1.0.0",
-  "buildNumber": "1",
-  "bundleIdentifier": "com.stepora.app",
-  "androidPackage": "com.stepora.app",
-  "scheme": "com.stepora.app",
-  "icon": {
-    "source": "./assets/icon.png",
-    "backgroundColor": "#03010a"
-  },
-  "splash": {
-    "image": "./assets/splash.png",
-    "resizeMode": "contain",
-    "backgroundColor": "#03010a"
-  },
-  "android": {
-    "package": "com.stepora.app",
-    "versionCode": 1,
-    "adaptiveIcon": {
-      "foregroundImage": "./assets/adaptive-icon-foreground.png",
-      "backgroundImage": "./assets/adaptive-icon-background.png",
-      "backgroundColor": "#03010a"
-    },
-    "permissions": [
-      "INTERNET",
-      "ACCESS_NETWORK_STATE",
-      "VIBRATE",
-      "RECEIVE_BOOT_COMPLETED",
-      "WAKE_LOCK",
-      "USE_BIOMETRIC",
-      "POST_NOTIFICATIONS",
-      "CAMERA",
-      "READ_EXTERNAL_STORAGE"
-    ],
-    "googleServicesFile": "./android/app/google-services.json",
-    "splash": {
-      "image": "./assets/splash.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#03010a"
-    }
-  },
-  "ios": {
-    "bundleIdentifier": "com.stepora.app",
-    "buildNumber": "1",
-    "supportsTablet": true,
-    "infoPlist": {
-      "UIBackgroundModes": ["fetch", "remote-notification"],
-      "NSCameraUsageDescription": "Stepora needs camera access to take profile photos.",
-      "NSPhotoLibraryUsageDescription": "Stepora needs photo library access to select images.",
-      "NSFaceIDUsageDescription": "Stepora uses Face ID to securely unlock the app.",
-      "NSMicrophoneUsageDescription": "Stepora needs microphone access for voice messages.",
-      "NSUserTrackingUsageDescription": "We use this to show you relevant ads and improve your experience. You can change this anytime in Settings."
-    },
-    "associatedDomains": [
-      "applinks:stepora.app",
-      "applinks:api.stepora.app"
-    ],
-    "googleServicesFile": "./ios/Stepora/GoogleService-Info.plist",
-    "splash": {
-      "image": "./assets/splash.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#03010a"
-    }
-  },
-  "plugins": [
-    "@react-native-firebase/app",
-    "@react-native-firebase/messaging",
-    "react-native-splash-screen"
-  ],
-  "react-native-google-mobile-ads": {
-    "android_app_id": "",
-    "ios_app_id": "",
-    "delay_app_measurement_init": true,
-    "user_tracking_usage_description": "We use this to show you relevant ads and improve your experience. You can change this anytime in Settings."
-  }
+  "displayName": "Stepora"
 }

@@ -1,8 +1,5 @@
-<?xml version="1.0" encoding="utf-8"?>
-<!-- Stepora brand colors for Android resources -->
 <resources>
-    <color name="notification_color">#8B5CF6</color>
-    <color name="splash_background">#03010a</color>
-    <color name="brand_purple">#8B5CF6</color>
-    <color name="brand_purple_dark">#7C3AED</color>
+  <color name="splashscreen_background">#03010a</color>
+  <color name="iconBackground">#03010a</color>
+  <color name="colorPrimary">#023c69</color>
 </resources>
