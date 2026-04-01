@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "960921183455",
+    "project_id": "stepora-e4d70",
+    "storage_bucket": "stepora-e4d70.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:960921183455:android:7fae612f276b1b1635356a",
+        "android_client_info": {
+          "package_name": "com.stepora.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB92suATlVXIwwP8I8ig0MOrj8DfRJXPIc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

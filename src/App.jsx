@@ -12,6 +12,7 @@
  * Priority: MEDIUM — defense-in-depth measure, not a primary security control.
  */
 
+import * as Sentry from '@sentry/react-native';
 import React, { useEffect } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -59,7 +60,7 @@ var queryClient = new QueryClient({
   },
 });
 
-export default function App() {
+function App() {
   // Flush offline queue when app comes to foreground
   useEffect(function () {
     var sub = AppState.addEventListener('change', function (state) {
@@ -97,3 +98,5 @@ var styles = StyleSheet.create({
     flex: 1,
   },
 });
+
+export default Sentry.wrap(App);
