@@ -1,9 +1,5 @@
-var { getDefaultConfig, mergeConfig } = require('@react-native/metro-config');
+var { getDefaultConfig } = require('expo/metro-config');
 
-/**
- * Metro configuration
- * https://reactnative.dev/docs/metro
- */
-var config = {};
+var config = getDefaultConfig(__dirname);
 
-module.exports = mergeConfig(getDefaultConfig(__dirname), config);
+module.exports = config;
