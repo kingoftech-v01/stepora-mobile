@@ -39,26 +39,19 @@ android {
             keyPassword 'android'
         }
         release {
-            // TODO: Configure release signing — replace with your upload keystore
-            // storeFile file('stepora-upload-key.keystore')
-            // storePassword System.getenv("STEPORA_KEYSTORE_PASSWORD") ?: ""
-            // keyAlias System.getenv("STEPORA_KEY_ALIAS") ?: "stepora-upload"
-            // keyPassword System.getenv("STEPORA_KEY_PASSWORD") ?: ""
+            storeFile file('stepora-upload.keystore')
+            storePassword 'Stepora2026!'
+            keyAlias 'stepora'
+            keyPassword 'Stepora2026!'
         }
     }
-
-    // TODO: Configure release signing before Play Store submission
-    // 1. Generate upload keystore: keytool -genkeypair -v -storetype PKCS12 -keystore stepora-upload.keystore -alias stepora -keyalg RSA -keysize 2048 -validity 10000
-    // 2. Add to gradle.properties: STEPORA_UPLOAD_STORE_FILE, STEPORA_UPLOAD_KEY_ALIAS, STEPORA_UPLOAD_STORE_PASSWORD, STEPORA_UPLOAD_KEY_PASSWORD
-    // 3. Configure signingConfigs.release with the above properties
-    // 4. Set buildTypes.release.signingConfig = signingConfigs.release
 
     buildTypes {
         debug {
             signingConfig signingConfigs.debug
         }
         release {
-            signingConfig signingConfigs.debug // TODO: Switch to signingConfigs.release before publishing
+            signingConfig signingConfigs.release
             minifyEnabled enableProguardInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
         }
