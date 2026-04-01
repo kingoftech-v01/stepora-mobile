@@ -1,5 +1,6 @@
 [
   {
+    "_todo": "Replace sha256_cert_fingerprints with the real fingerprint after release signing is configured. Run: keytool -list -v -keystore stepora-upload.keystore -alias stepora | grep SHA256 — then paste the colon-separated hex string below.",
     "relation": ["delegate_permission/common.handle_all_urls"],
     "target": {
       "namespace": "android_app",

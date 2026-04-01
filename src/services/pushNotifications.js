@@ -103,9 +103,8 @@ var registerTokenWithBackend = function (apiPost) {
     if (!token) return null;
 
     return apiPost(DEVICES_URL, {
-      registration_id: token,
-      type: Platform.OS === 'ios' ? 'ios' : 'android',
-      active: true,
+      fcm_token: token,
+      platform: Platform.OS === 'ios' ? 'ios' : 'android',
     })
       .then(function () {
         logger.log('[Push] Token registered with backend');
@@ -240,10 +239,32 @@ var setupListeners = function (navigationRef) {
       }
     });
 
-  // Token refresh
+  // Token refresh — re-register new token with backend
   messaging().onTokenRefresh(function (newToken) {
     logger.log('[Push] Token refreshed:', newToken.substring(0, 20) + '...');
-    // Re-register with backend on next opportunity
+    var apiPost;
+    try {
+      apiPost = require('./api').apiPost;
+    } catch (e) {
+      logger.warn('[Push] Cannot import apiPost for token refresh');
+      return;
+    }
+    var DEVICES_URL;
+    try {
+      DEVICES_URL = require('./endpoints').NOTIFICATIONS.DEVICES;
+    } catch (e) {
+      DEVICES_URL = '/api/notifications/devices/';
+    }
+    apiPost(DEVICES_URL, {
+      fcm_token: newToken,
+      platform: Platform.OS === 'ios' ? 'ios' : 'android',
+    })
+      .then(function () {
+        logger.log('[Push] Refreshed token registered with backend');
+      })
+      .catch(function (err) {
+        logger.error('[Push] Failed to register refreshed token:', err);
+      });
   });
 };
 

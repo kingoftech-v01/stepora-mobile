@@ -309,6 +309,11 @@ var useCalibrationScreen = function () {
       apiPost(DREAMS.ANSWER_CALIBRATION(id), { question: question.text, answer: answer, questionNumber: currentQ + 1 })
         .then(function (res) {
           setSubmittingAnswer(false);
+          // Mid-batch completion: backend marked calibration done before we reached the last question
+          if (!isLastQuestion && res && res.status === 'completed') {
+            handleCalibrationComplete();
+            return;
+          }
           if (isLastQuestion && res && Array.isArray(res.questions) && res.questions.length > 0) {
             var newQs = res.questions.map(function (q, i) {
               return { id: q.id || 'extra-' + Date.now() + '-' + i, text: q.question || q.text || 'Follow-up question', type: 'text', placeholder: 'Type your answer...' };
@@ -329,6 +334,11 @@ var useCalibrationScreen = function () {
         })
         .catch(function (err) {
           setSubmittingAnswer(false);
+          var errMsg = (err && err.message) || '';
+          if (errMsg.toLowerCase().includes('already completed')) {
+            handleCalibrationComplete();
+            return;
+          }
           if (isLastQuestion) {
             logger.warn('Failed to save calibration answer', err);
           }

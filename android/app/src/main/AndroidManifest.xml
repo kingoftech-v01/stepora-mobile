@@ -135,10 +135,5 @@
             android:name="com.stepora.splash_screen"
             android:value="true" />
 
-        <!-- Google AdMob App ID (replace with real ID from AdMob dashboard) -->
-        <meta-data
-            android:name="com.google.android.gms.ads.APPLICATION_ID"
-            android:value="ca-app-pub-XXXXXXXXXXXXXXXX~XXXXXXXXXX"/>
-
     </application>
 </manifest>

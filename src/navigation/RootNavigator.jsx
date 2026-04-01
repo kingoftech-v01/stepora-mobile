@@ -8,15 +8,17 @@
 
 import React from 'react';
 import { ActivityIndicator, View, Text, StyleSheet } from 'react-native';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, useNavigationContainerRef } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 var AdInterstitial = require('../components/AdInterstitial');
+var { setupListeners } = require('../services/pushNotifications');
 
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import AuthStack from './AuthStack';
 import MainTabs from './MainTabs';
+import { LINKING_CONFIG } from './routes';
 
 // ─── Screen imports ─────────────────────────────────────────────
 
@@ -127,7 +129,14 @@ var RootStack = createNativeStackNavigator();
 export default function RootNavigator() {
   var { isAuthenticated, isLoading, user } = useAuth();
   var { colors, isReady: themeReady } = useTheme();
+  var navigationRef = useNavigationContainerRef();
   var adInterstitialRef = React.useRef(null);
+
+  React.useEffect(function () {
+    if (navigationRef) {
+      setupListeners(navigationRef);
+    }
+  }, [navigationRef]);
 
   var onNavigationStateChange = React.useCallback(function () {
     if (adInterstitialRef.current && adInterstitialRef.current.onNavigate) {
@@ -157,7 +166,7 @@ export default function RootNavigator() {
   };
 
   return (
-    <NavigationContainer theme={navigationTheme} onStateChange={onNavigationStateChange}>
+    <NavigationContainer ref={navigationRef} linking={LINKING_CONFIG} theme={navigationTheme} onStateChange={onNavigationStateChange}>
       <AdInterstitial ref={adInterstitialRef} frequency={5} />
       <RootStack.Navigator screenOptions={{ headerShown: false }}>
         {!isAuthenticated ? (

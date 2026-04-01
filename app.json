@@ -70,8 +70,8 @@
     "react-native-splash-screen"
   ],
   "react-native-google-mobile-ads": {
-    "android_app_id": "ca-app-pub-XXXXXXXXXXXXXXXX~XXXXXXXXXX",
-    "ios_app_id": "ca-app-pub-XXXXXXXXXXXXXXXX~XXXXXXXXXX",
+    "android_app_id": "",
+    "ios_app_id": "",
     "delay_app_measurement_init": true,
     "user_tracking_usage_description": "We use this to show you relevant ads and improve your experience. You can change this anytime in Settings."
   }
