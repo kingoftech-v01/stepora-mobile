@@ -12,6 +12,15 @@ var { ThemeProvider, useTheme, ACCENT_PRESETS } = require('./ThemeContext');
 beforeEach(function () {
   jest.clearAllMocks();
   AsyncStorage._reset();
+  // Reset getItem to default behavior so persistence test mockImplementation doesn't leak
+  AsyncStorage.getItem.mockReset();
+  AsyncStorage.getItem.mockImplementation(function () {
+    return Promise.resolve(null);
+  });
+  AsyncStorage.setItem.mockReset();
+  AsyncStorage.setItem.mockImplementation(function () {
+    return Promise.resolve();
+  });
 });
 
 function wrapper(props) {
@@ -235,6 +244,165 @@ describe('ThemeContext', function () {
     it('exports 10 accent presets', function () {
       expect(ACCENT_PRESETS).toHaveLength(10);
       expect(ACCENT_PRESETS[0]).toEqual({ name: 'Purple', color: '#8B5CF6' });
+    });
+
+    it('all presets have valid hex colors', function () {
+      ACCENT_PRESETS.forEach(function (preset) {
+        expect(preset.color).toMatch(/^#[0-9A-Fa-f]{6}$/);
+        expect(typeof preset.name).toBe('string');
+        expect(preset.name.length).toBeGreaterThan(0);
+      });
+    });
+  });
+
+  describe('saturn theme', function () {
+    it('supports saturn as a valid theme id (resolves to dark)', async function () {
+      var { result } = renderHook(function () { return useTheme(); }, { wrapper: wrapper });
+
+      await waitFor(function () {
+        expect(result.current.isReady).toBe(true);
+      });
+
+      act(function () {
+        result.current.setTheme('saturn');
+      });
+
+      expect(result.current.visualTheme).toBe('saturn');
+      expect(result.current.resolved).toBe('dark');
+      expect(result.current.isDay).toBe(false);
+    });
+  });
+
+  describe('accent color edge cases', function () {
+    it('rejects 3-character hex codes', async function () {
+      var { result } = renderHook(function () { return useTheme(); }, { wrapper: wrapper });
+
+      await waitFor(function () {
+        expect(result.current.isReady).toBe(true);
+      });
+
+      act(function () {
+        result.current.setAccentColor('#F00');
+      });
+
+      expect(result.current.accentColor).toBe('#8B5CF6');
+    });
+
+    it('rejects empty string', async function () {
+      var { result } = renderHook(function () { return useTheme(); }, { wrapper: wrapper });
+
+      await waitFor(function () {
+        expect(result.current.isReady).toBe(true);
+      });
+
+      act(function () {
+        result.current.setAccentColor('');
+      });
+
+      expect(result.current.accentColor).toBe('#8B5CF6');
+    });
+
+    it('rejects null', async function () {
+      var { result } = renderHook(function () { return useTheme(); }, { wrapper: wrapper });
+
+      await waitFor(function () {
+        expect(result.current.isReady).toBe(true);
+      });
+
+      act(function () {
+        result.current.setAccentColor(null);
+      });
+
+      expect(result.current.accentColor).toBe('#8B5CF6');
+    });
+
+    it('accepts lowercase hex', async function () {
+      var { result } = renderHook(function () { return useTheme(); }, { wrapper: wrapper });
+
+      await waitFor(function () {
+        expect(result.current.isReady).toBe(true);
+      });
+
+      act(function () {
+        result.current.setAccentColor('#abcdef');
+      });
+
+      expect(result.current.accentColor).toBe('#abcdef');
+    });
+
+    it('persists accent color to AsyncStorage', async function () {
+      var { result } = renderHook(function () { return useTheme(); }, { wrapper: wrapper });
+
+      await waitFor(function () {
+        expect(result.current.isReady).toBe(true);
+      });
+
+      act(function () {
+        result.current.setAccentColor('#FF0000');
+      });
+
+      await waitFor(function () {
+        expect(AsyncStorage.setItem).toHaveBeenCalledWith('dp-accent-color', '#FF0000');
+      });
+    });
+  });
+
+  describe('theme value shape', function () {
+    it('provides all expected context fields', async function () {
+      var { result } = renderHook(function () { return useTheme(); }, { wrapper: wrapper });
+
+      await waitFor(function () {
+        expect(result.current.isReady).toBe(true);
+      });
+
+      expect(result.current).toEqual(expect.objectContaining({
+        theme: expect.any(String),
+        resolved: expect.any(String),
+        setTheme: expect.any(Function),
+        visualTheme: expect.any(String),
+        isDay: expect.any(Boolean),
+        accentColor: expect.any(String),
+        accentSoft: expect.any(String),
+        accentGlow: expect.any(String),
+        accentBorder: expect.any(String),
+        setAccentColor: expect.any(Function),
+        colors: expect.any(Object),
+        isReady: true,
+      }));
+    });
+
+    it('colors object has required color keys', async function () {
+      var { result } = renderHook(function () { return useTheme(); }, { wrapper: wrapper });
+
+      await waitFor(function () {
+        expect(result.current.isReady).toBe(true);
+      });
+
+      var requiredKeys = [
+        'background', 'surface', 'surfaceBorder', 'text',
+        'textSecondary', 'textTertiary', 'glassBg', 'glassBorder',
+        'cardBg', 'cardBorder', 'statusBarStyle',
+      ];
+
+      requiredKeys.forEach(function (key) {
+        expect(result.current.colors).toHaveProperty(key);
+      });
+    });
+  });
+
+  describe('persistence errors', function () {
+    it('handles AsyncStorage load errors gracefully', async function () {
+      AsyncStorage.getItem.mockRejectedValue(new Error('Storage crash'));
+
+      var { result } = renderHook(function () { return useTheme(); }, { wrapper: wrapper });
+
+      await waitFor(function () {
+        expect(result.current.isReady).toBe(true);
+      });
+
+      // Falls back to defaults
+      expect(result.current.theme).toBe('cosmos');
+      expect(result.current.accentColor).toBe('#8B5CF6');
     });
   });
 });

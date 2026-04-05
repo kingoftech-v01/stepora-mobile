@@ -195,12 +195,13 @@ jest.mock('@react-native-firebase/messaging', function () {
 
 // ─── Toast mock ─────────────────────────────────────────────────
 jest.mock('react-native-toast-message', function () {
+  var React = require('react');
+  var ToastComponent = function () { return null; };
+  ToastComponent.show = jest.fn();
+  ToastComponent.hide = jest.fn();
   return {
     __esModule: true,
-    default: {
-      show: jest.fn(),
-      hide: jest.fn(),
-    },
+    default: ToastComponent,
   };
 });
 

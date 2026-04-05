@@ -44,6 +44,17 @@ jest.mock('../context/ThemeContext', function () {
   };
 });
 
+// ─── Mock pushNotifications service ─────────────────────────────
+jest.mock('../services/pushNotifications', function () {
+  return {
+    setupListeners: jest.fn(),
+    teardownListeners: jest.fn(),
+    requestPermission: jest.fn(function () { return Promise.resolve(true); }),
+    getFCMToken: jest.fn(function () { return Promise.resolve('mock-token'); }),
+    registerTokenWithBackend: jest.fn(function () { return Promise.resolve('mock-token'); }),
+  };
+});
+
 // ─── Mock react-navigation ──────────────────────────────────────
 
 jest.mock('@react-navigation/native', function () {
@@ -53,6 +64,15 @@ jest.mock('@react-navigation/native', function () {
     NavigationContainer: function (props) {
       return _React.createElement(RN.View, { testID: 'nav-container' }, props.children);
     },
+    createNavigationContainerRef: jest.fn(function () {
+      return {
+        navigate: jest.fn(),
+        goBack: jest.fn(),
+        reset: jest.fn(),
+        isReady: jest.fn(function () { return true; }),
+        current: null,
+      };
+    }),
   };
 });
 

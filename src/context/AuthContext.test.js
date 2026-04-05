@@ -472,4 +472,160 @@ describe('AuthContext', function () {
       expect(result.current.token).toBeNull();
     });
   });
+
+  describe('socialLogin', function () {
+    it('calls Google auth endpoint and fetches user', async function () {
+      mockApiPost.mockResolvedValue({
+        access: 'google-access',
+        refresh: 'google-refresh',
+      });
+
+      var { result } = renderHook(function () { return useAuth(); }, { wrapper: wrapper });
+
+      await waitFor(function () {
+        expect(result.current.isLoading).toBe(false);
+      });
+
+      await act(async function () {
+        await result.current.socialLogin('google', 'google-token');
+      });
+
+      expect(mockApiPost).toHaveBeenCalledWith('/api/auth/google/', { accessToken: 'google-token' });
+      expect(mockSetToken).toHaveBeenCalledWith('google-access', 'google-refresh');
+    });
+
+    it('calls Apple auth endpoint for apple provider', async function () {
+      mockApiPost.mockResolvedValue({
+        access: 'apple-access',
+        refresh: 'apple-refresh',
+      });
+
+      var { result } = renderHook(function () { return useAuth(); }, { wrapper: wrapper });
+
+      await waitFor(function () {
+        expect(result.current.isLoading).toBe(false);
+      });
+
+      await act(async function () {
+        await result.current.socialLogin('apple', 'apple-id-token');
+      });
+
+      expect(mockApiPost).toHaveBeenCalledWith('/api/auth/apple/', { accessToken: 'apple-id-token' });
+    });
+
+    it('throws when no access token in social login response', async function () {
+      mockApiPost.mockResolvedValue({});
+
+      var { result } = renderHook(function () { return useAuth(); }, { wrapper: wrapper });
+
+      await waitFor(function () {
+        expect(result.current.isLoading).toBe(false);
+      });
+
+      await expect(
+        act(async function () {
+          await result.current.socialLogin('google', 'token');
+        }),
+      ).rejects.toThrow('No token received');
+    });
+  });
+
+  describe('refreshUser', function () {
+    it('re-fetches user data', async function () {
+      var { result } = renderHook(function () { return useAuth(); }, { wrapper: wrapper });
+
+      await waitFor(function () {
+        expect(result.current.isAuthenticated).toBe(true);
+      });
+
+      mockApiGet.mockResolvedValue({ ...mockUser, displayName: 'Updated Name' });
+
+      await act(async function () {
+        await result.current.refreshUser();
+      });
+
+      expect(result.current.user.displayName).toBe('Updated Name');
+    });
+
+    it('handles refresh errors gracefully', async function () {
+      var { result } = renderHook(function () { return useAuth(); }, { wrapper: wrapper });
+
+      await waitFor(function () {
+        expect(result.current.isAuthenticated).toBe(true);
+      });
+
+      mockApiGet.mockRejectedValue(new Error('Network error'));
+
+      // Should not throw
+      await act(async function () {
+        await result.current.refreshUser();
+      });
+
+      // User should still be set from initial fetch
+      expect(result.current.user).not.toBeNull();
+    });
+  });
+
+  describe('updateUser edge cases', function () {
+    it('does nothing when user is null', async function () {
+      mockInitToken.mockResolvedValue('');
+      mockRefreshAccessToken.mockRejectedValue(new Error('fail'));
+
+      var { result } = renderHook(function () { return useAuth(); }, { wrapper: wrapper });
+
+      await waitFor(function () {
+        expect(result.current.isLoading).toBe(false);
+      });
+
+      act(function () {
+        result.current.updateUser({ displayName: 'Test' });
+      });
+
+      expect(result.current.user).toBeNull();
+    });
+  });
+
+  describe('hasSubscription edge cases', function () {
+    it('returns false when user is null', async function () {
+      mockInitToken.mockResolvedValue('');
+      mockRefreshAccessToken.mockRejectedValue(new Error('fail'));
+
+      var { result } = renderHook(function () { return useAuth(); }, { wrapper: wrapper });
+
+      await waitFor(function () {
+        expect(result.current.isLoading).toBe(false);
+      });
+
+      expect(result.current.hasSubscription('free')).toBe(false);
+    });
+
+    it('handles unknown subscription tier', async function () {
+      mockApiGet.mockResolvedValue({
+        ...mockUser,
+        subscription: 'enterprise',
+      });
+
+      var { result } = renderHook(function () { return useAuth(); }, { wrapper: wrapper });
+
+      await waitFor(function () {
+        expect(result.current.user).not.toBeNull();
+      });
+
+      // Unknown tier has order 0 (same as free)
+      expect(result.current.hasSubscription('free')).toBe(true);
+      expect(result.current.hasSubscription('premium')).toBe(false);
+    });
+  });
+
+  describe('offline cache', function () {
+    it('flushes offline queue after successful auth', async function () {
+      var { result } = renderHook(function () { return useAuth(); }, { wrapper: wrapper });
+
+      await waitFor(function () {
+        expect(result.current.isAuthenticated).toBe(true);
+      });
+
+      expect(mockFlushOfflineQueue).toHaveBeenCalled();
+    });
+  });
 });
