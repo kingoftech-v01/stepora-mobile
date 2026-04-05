@@ -70,14 +70,6 @@ jest.mock('../../config/onboardingTooltips', function () {
   };
 });
 
-// Mock AdBanner (uses useAuth which requires AuthProvider)
-jest.mock('../../components/AdBanner', function () {
-  var React = require('react');
-  return function () {
-    return React.createElement(require('react-native').View, { testID: 'ad-banner' });
-  };
-});
-
 // Mock AuthContext
 jest.mock('../../context/AuthContext', function () {
   return {

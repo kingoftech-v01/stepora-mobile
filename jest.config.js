@@ -26,8 +26,6 @@ module.exports = {
       '@react-native-community/blur|' +
       'react-native-linear-gradient|' +
       'react-native-svg|' +
-      'react-native-tracking-transparency|' +
-      'react-native-google-mobile-ads|' +
       '@tanstack/react-query' +
     ')/)',
   ],

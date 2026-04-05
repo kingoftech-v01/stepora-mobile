@@ -15,7 +15,6 @@ var Icon = require('react-native-vector-icons/Feather').default;
 var { SafeAreaView } = require('react-native-safe-area-context');
 var useDreamsListScreen = require('./useDreamsListScreen');
 var SubscriptionBanner = require('../../components/SubscriptionBanner');
-var AdNative = require('../../components/AdNative');
 var OnboardingTooltip = require('../../components/OnboardingTooltip');
 var { getTooltipConfig } = require('../../config/onboardingTooltips');
 var { COLORS, SPACING, RADIUS } = require('../../theme/tokens');
@@ -96,10 +95,6 @@ var DreamsListScreen = function () {
 
   var renderDreamCard = function (info) {
     var dream = info.item;
-    // Insert native ad every 4 items
-    var adEl = (info.index > 0 && info.index % 4 === 0)
-      ? React.createElement(AdNative, { key: 'ad-dream-' + info.index, variant: Math.floor(info.index / 4) })
-      : null;
     var solidColor = h.catSolid(dream.category);
     var progress = dream.progressPercentage || 0;
     var emoji = dream.emoji || '';
@@ -176,10 +171,6 @@ var DreamsListScreen = function () {
       )
     );
 
-    // Wrap with ad if needed
-    if (adEl) {
-      return React.createElement(View, { key: 'wrap-' + dream.id }, adEl, cardEl);
-    }
     return cardEl;
   };
 

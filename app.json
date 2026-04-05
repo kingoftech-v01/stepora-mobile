@@ -45,8 +45,7 @@
         "NSCameraUsageDescription": "Stepora needs camera access to take profile photos.",
         "NSPhotoLibraryUsageDescription": "Stepora needs photo library access to select images.",
         "NSFaceIDUsageDescription": "Stepora uses Face ID to securely unlock the app.",
-        "NSMicrophoneUsageDescription": "Stepora needs microphone access for voice messages.",
-        "NSUserTrackingUsageDescription": "We use this to show you relevant ads and improve your experience. You can change this anytime in Settings."
+        "NSMicrophoneUsageDescription": "Stepora needs microphone access for voice messages."
       },
       "associatedDomains": [
         "applinks:stepora.app",

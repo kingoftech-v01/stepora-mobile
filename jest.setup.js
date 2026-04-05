@@ -239,65 +239,6 @@ jest.mock('react-native-biometrics', function () {
   });
 });
 
-// ─── Tracking Transparency mock ─────────────────────────────────
-jest.mock('react-native-tracking-transparency', function () {
-  return {
-    getTrackingStatus: jest.fn(function () {
-      return Promise.resolve('not-determined');
-    }),
-    requestTrackingPermission: jest.fn(function () {
-      return Promise.resolve('authorized');
-    }),
-  };
-});
-
-// ─── Google Mobile Ads / AdsConsent mock ────────────────────────
-jest.mock('react-native-google-mobile-ads', function () {
-  return {
-    __esModule: true,
-    default: jest.fn(function () {
-      return {
-        initialize: jest.fn(function () {
-          return Promise.resolve([]);
-        }),
-      };
-    }),
-    AdsConsent: {
-      requestInfoUpdate: jest.fn(function () {
-        return Promise.resolve({ status: 'OBTAINED', isConsentFormAvailable: false });
-      }),
-      showForm: jest.fn(function () {
-        return Promise.resolve({ status: 'OBTAINED' });
-      }),
-      showPrivacyOptionsForm: jest.fn(function () {
-        return Promise.resolve({ status: 'OBTAINED' });
-      }),
-      loadAndShowConsentFormIfRequired: jest.fn(function () {
-        return Promise.resolve({ status: 'OBTAINED' });
-      }),
-      getConsentInfo: jest.fn(function () {
-        return Promise.resolve({ status: 'OBTAINED', isConsentFormAvailable: false });
-      }),
-      gatherConsent: jest.fn(function () {
-        return Promise.resolve({ status: 'OBTAINED', isConsentFormAvailable: false });
-      }),
-      reset: jest.fn(),
-      getTCString: jest.fn(function () {
-        return Promise.resolve('');
-      }),
-      getGdprApplies: jest.fn(function () {
-        return Promise.resolve(false);
-      }),
-      getPurposeConsents: jest.fn(function () {
-        return Promise.resolve('');
-      }),
-      getPurposeLegitimateInterests: jest.fn(function () {
-        return Promise.resolve('');
-      }),
-    },
-  };
-});
-
 // ─── SVG mock ───────────────────────────────────────────────────
 jest.mock('react-native-svg', function () {
   var React = require('react');

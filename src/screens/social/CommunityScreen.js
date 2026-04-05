@@ -24,7 +24,6 @@ var useInfiniteList = require('../../hooks/useInfiniteList');
 var ScreenShell = require('../../components/shared/ScreenShell');
 var GlassHeader = require('../../components/shared/GlassHeader');
 var GlassCard = require('../../components/shared/GlassCard');
-var AdNative = require('../../components/AdNative');
 var Avatar = require('../../components/shared/Avatar');
 var Icon = require('react-native-vector-icons/Feather').default;
 var OnboardingTooltip = require('../../components/OnboardingTooltip');
@@ -475,14 +474,7 @@ var CommunityScreen = function () {
   var renderItem = useCallback(
     function (info) {
       var item = info.item;
-      var adEl = (info.index > 0 && info.index % 5 === 0)
-        ? React.createElement(AdNative, { key: 'ad-social-' + info.index, variant: Math.floor(info.index / 5) })
-        : null;
-      var cardEl = item._type === 'event' ? renderEventCard(item) : renderPostCard(item);
-      if (adEl) {
-        return React.createElement(View, { key: 'wrap-' + (item.id || info.index) }, adEl, cardEl);
-      }
-      return cardEl;
+      return item._type === 'event' ? renderEventCard(item) : renderPostCard(item);
     },
     [navigation, handleLikePost],
   );

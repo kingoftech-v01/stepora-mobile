@@ -28,26 +28,6 @@ import { NetworkProvider } from './context/NetworkContext';
 import RootNavigator from './navigation/RootNavigator';
 import OfflineBanner from './components/shared/OfflineBanner';
 
-// ─── Ad compliance & initialization ─────────────────────────────────
-// Order matters: ATT (iOS) → GDPR consent (EU) → AdMob SDK init
-var { requestTrackingPermission } = require('./services/trackingConsent');
-var { gatherGDPRConsent } = require('./services/adsConsent');
-var { initAdMob } = require('./services/admobInit');
-var logger = require('./utils/logger');
-
-requestTrackingPermission()
-  .then(function (trackingStatus) {
-    logger.log('[App] ATT status:', trackingStatus);
-    return gatherGDPRConsent();
-  })
-  .then(function (consentInfo) {
-    logger.log('[App] GDPR consent:', consentInfo);
-    return initAdMob();
-  })
-  .catch(function (err) {
-    logger.warn('[App] Ad initialization chain failed — ads may not load:', err);
-  });
-
 // ─── React Query client ──────────────────────────────────────────
 var queryClient = new QueryClient({
   defaultOptions: {
