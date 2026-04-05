@@ -8,7 +8,7 @@
 
 import React from 'react';
 import { ActivityIndicator, View, Text, StyleSheet } from 'react-native';
-import { NavigationContainer, useNavigationContainerRef } from '@react-navigation/native';
+import { NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 var { setupListeners } = require('../services/pushNotifications');
@@ -128,12 +128,12 @@ var RootStack = createNativeStackNavigator();
 export default function RootNavigator() {
   var { isAuthenticated, isLoading, user } = useAuth();
   var { colors, isReady: themeReady } = useTheme();
-  var navigationRef = useNavigationContainerRef();
+  var navigationRef = React.useRef(createNavigationContainerRef());
   React.useEffect(function () {
-    if (navigationRef) {
-      setupListeners(navigationRef);
+    if (navigationRef.current) {
+      setupListeners(navigationRef.current);
     }
-  }, [navigationRef]);
+  }, []);
 
   // Show loading spinner while auth/theme initializes
   if (isLoading || !themeReady) {
@@ -157,7 +157,7 @@ export default function RootNavigator() {
   };
 
   return (
-    <NavigationContainer ref={navigationRef} linking={LINKING_CONFIG} theme={navigationTheme}>
+    <NavigationContainer ref={navigationRef.current} linking={LINKING_CONFIG} theme={navigationTheme}>
       <RootStack.Navigator screenOptions={{ headerShown: false }}>
         {!isAuthenticated ? (
           // ─── Auth Flow ────────────────────────────────────
